@@ -8,9 +8,11 @@ import { MessageList, type Message } from '@/components/MessageBubble';
 import { ContextPanel } from '@/components/ContextPanel';
 import { EmptyState } from '@/components/EmptyState';
 import { KnowledgeOrb } from '@/components/KnowledgeOrb';
+import { streamChat, analyzeConfidence, type ChatMessage } from '@/lib/chat';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-// Mock data
+// Mock data for sidebar
 const mockConversations = [
   {
     id: '1',
@@ -39,30 +41,16 @@ const mockSpaces = [
   { id: '3', name: 'Learning', color: '#ffd93d', conversationCount: 5 },
 ];
 
-const mockReasoning = [
-  { id: '1', title: 'Analyzed question context', description: 'Identified key concepts and intent' },
-  { id: '2', title: 'Retrieved relevant knowledge', description: 'Searched knowledge base for related topics' },
-  { id: '3', title: 'Synthesized response', description: 'Combined information into coherent answer' },
-];
-
-const mockSources = [
-  { id: '1', title: 'Machine Learning Fundamentals', type: 'document' as const },
-  { id: '2', title: 'Wikipedia: Neural Networks', url: 'https://wikipedia.org', type: 'web' as const },
-];
-
-const mockKeyPoints = [
-  { id: '1', text: 'Neural networks are inspired by biological neurons' },
-  { id: '2', text: 'Backpropagation adjusts weights based on error gradients' },
-  { id: '3', text: 'Deep learning uses multiple hidden layers' },
-];
-
 export default function Index() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [contextOpen, setContextOpen] = useState(false);
   const [activeConversationId, setActiveConversationId] = useState<string>();
+  const [reasoning, setReasoning] = useState<{ id: string; title: string; description: string }[]>([]);
+  const [keyPoints, setKeyPoints] = useState<{ id: string; text: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -84,25 +72,81 @@ export default function Index() {
     setIsThinking(true);
     setContextOpen(true);
 
-    // Simulate AI response
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Set reasoning steps
+    setReasoning([
+      { id: '1', title: 'Analyzing question', description: 'Understanding context and intent' },
+      { id: '2', title: 'Retrieving knowledge', description: 'Searching relevant information' },
+      { id: '3', title: 'Generating response', description: 'Synthesizing comprehensive answer' },
+    ]);
 
-    const aiMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: generateMockResponse(content),
-      timestamp: new Date(),
-      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.5 ? 'medium' : 'low',
-    };
+    // Create assistant message placeholder
+    const assistantId = (Date.now() + 1).toString();
+    let assistantContent = '';
 
-    setIsThinking(false);
-    setMessages(prev => [...prev, aiMessage]);
+    // Prepare messages for API
+    const chatMessages: ChatMessage[] = [...messages, userMessage].map(m => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    await streamChat({
+      messages: chatMessages,
+      onDelta: (chunk) => {
+        assistantContent += chunk;
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last?.role === 'assistant' && last.id === assistantId) {
+            return prev.map((m, i) =>
+              i === prev.length - 1 ? { ...m, content: assistantContent } : m
+            );
+          }
+          return [
+            ...prev,
+            {
+              id: assistantId,
+              role: 'assistant' as const,
+              content: assistantContent,
+              timestamp: new Date(),
+            },
+          ];
+        });
+      },
+      onDone: () => {
+        setIsThinking(false);
+        
+        // Analyze confidence
+        const confidence = analyzeConfidence(assistantContent);
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === assistantId ? { ...m, confidence } : m
+          )
+        );
+
+        // Extract key points from the response
+        const sentences = assistantContent.split(/[.!?]+/).filter(s => s.trim().length > 20);
+        const points = sentences.slice(0, 4).map((text, i) => ({
+          id: String(i),
+          text: text.trim(),
+        }));
+        setKeyPoints(points);
+      },
+      onError: (error) => {
+        setIsThinking(false);
+        toast({
+          title: 'Error',
+          description: error,
+          variant: 'destructive',
+        });
+      },
+    });
   };
 
   const handleNewChat = () => {
     setMessages([]);
     setActiveConversationId(undefined);
     setContextOpen(false);
+    setReasoning([]);
+    setKeyPoints([]);
   };
 
   const hasMessages = messages.length > 0;
@@ -199,49 +243,12 @@ export default function Index() {
           <ContextPanel
             isOpen={contextOpen && hasMessages}
             onClose={() => setContextOpen(false)}
-            reasoning={mockReasoning}
-            sources={mockSources}
-            keyPoints={mockKeyPoints}
+            reasoning={reasoning}
+            sources={[]}
+            keyPoints={keyPoints}
           />
         </div>
       </main>
     </div>
   );
-}
-
-function generateMockResponse(query: string): string {
-  const responses = [
-    `Great question! Let me break this down for you.
-
-## Overview
-
-${query.includes('neural') || query.includes('machine learning') 
-  ? `Neural networks are computational systems inspired by the biological neural networks in our brains. They consist of interconnected nodes (neurons) organized in layers.`
-  : `This is a fascinating topic that touches on several key concepts. Let me explain the core ideas and how they connect.`}
-
-### Key Concepts
-
-1. **Foundation**: Understanding the basics is crucial for building more complex knowledge
-2. **Application**: These principles can be applied in various real-world scenarios
-3. **Best Practices**: Following established patterns leads to better outcomes
-
-### Example
-
-\`\`\`javascript
-// Here's a simple demonstration
-const example = {
-  concept: "learning",
-  approach: "step-by-step",
-  outcome: "understanding"
-};
-\`\`\`
-
-### Summary
-
-The key takeaway is that complex topics become manageable when broken down into smaller, digestible pieces. Each component builds upon the previous one, creating a solid foundation of knowledge.
-
-Would you like me to dive deeper into any specific aspect?`,
-  ];
-
-  return responses[0];
 }
