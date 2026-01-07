@@ -12,28 +12,14 @@ import { streamChat, analyzeConfidence, type ChatMessage } from '@/lib/chat';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-// Mock data for sidebar
-const mockConversations = [
-  {
-    id: '1',
-    title: 'Understanding Neural Networks',
-    preview: 'Can you explain how backpropagation works...',
-    timestamp: new Date(),
-    starred: true,
-  },
-  {
-    id: '2',
-    title: 'React Performance Tips',
-    preview: 'What are the best practices for...',
-    timestamp: new Date(Date.now() - 86400000),
-  },
-  {
-    id: '3',
-    title: 'API Design Patterns',
-    preview: 'Compare REST vs GraphQL for...',
-    timestamp: new Date(Date.now() - 172800000),
-  },
-];
+interface Conversation {
+  id: string;
+  title: string;
+  preview: string;
+  timestamp: Date;
+  starred?: boolean;
+  messages: Message[];
+}
 
 const mockSpaces = [
   { id: '1', name: 'Research', color: '#00d4ff', conversationCount: 12 },
@@ -42,11 +28,12 @@ const mockSpaces = [
 ];
 
 export default function Index() {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [contextOpen, setContextOpen] = useState(false);
-  const [activeConversationId, setActiveConversationId] = useState<string>();
   const [reasoning, setReasoning] = useState<{ id: string; title: string; description: string }[]>([]);
   const [keyPoints, setKeyPoints] = useState<{ id: string; text: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -143,12 +130,67 @@ export default function Index() {
   };
 
   const handleNewChat = () => {
+    // Save current conversation if it has messages
+    if (activeConversationId && messages.length > 0) {
+      setConversations(prev =>
+        prev.map(c =>
+          c.id === activeConversationId
+            ? { ...c, messages, preview: messages[0]?.content.slice(0, 50) + '...' }
+            : c
+        )
+      );
+    }
+
+    // Create new conversation
+    const newId = Date.now().toString();
+    const newConversation: Conversation = {
+      id: newId,
+      title: 'New Chat',
+      preview: 'Start a new conversation...',
+      timestamp: new Date(),
+      messages: [],
+    };
+
+    setConversations(prev => [newConversation, ...prev]);
+    setActiveConversationId(newId);
     setMessages([]);
-    setActiveConversationId(undefined);
     setContextOpen(false);
     setReasoning([]);
     setKeyPoints([]);
   };
+
+  const handleSelectConversation = (id: string) => {
+    // Save current conversation
+    if (activeConversationId && messages.length > 0) {
+      setConversations(prev =>
+        prev.map(c =>
+          c.id === activeConversationId
+            ? { ...c, messages, preview: messages[0]?.content.slice(0, 50) + '...' }
+            : c
+        )
+      );
+    }
+
+    // Load selected conversation
+    const conversation = conversations.find(c => c.id === id);
+    if (conversation) {
+      setActiveConversationId(id);
+      setMessages(conversation.messages);
+      setContextOpen(conversation.messages.length > 0);
+    }
+  };
+
+  // Update conversation title after first message
+  useEffect(() => {
+    if (activeConversationId && messages.length === 1 && messages[0].role === 'user') {
+      const title = messages[0].content.slice(0, 40) + (messages[0].content.length > 40 ? '...' : '');
+      setConversations(prev =>
+        prev.map(c =>
+          c.id === activeConversationId ? { ...c, title } : c
+        )
+      );
+    }
+  }, [messages, activeConversationId]);
 
   const hasMessages = messages.length > 0;
 
@@ -157,11 +199,11 @@ export default function Index() {
       {/* Sidebar */}
       {sidebarOpen && (
         <Sidebar
-          conversations={mockConversations}
+          conversations={conversations}
           knowledgeSpaces={mockSpaces}
           activeConversationId={activeConversationId}
           onNewChat={handleNewChat}
-          onSelectConversation={setActiveConversationId}
+          onSelectConversation={handleSelectConversation}
           onSelectSpace={() => {}}
         />
       )}
