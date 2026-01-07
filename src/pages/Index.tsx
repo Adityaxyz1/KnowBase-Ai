@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { PanelRightOpen, PanelRightClose, Menu, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sidebar } from '@/components/Sidebar';
-import { ChatInput } from '@/components/ChatInput';
+import { ChatInput, type ChatInputHandle } from '@/components/ChatInput';
 import { MessageList, type Message } from '@/components/MessageBubble';
 import { ContextPanel } from '@/components/ContextPanel';
 import { EmptyState } from '@/components/EmptyState';
@@ -50,6 +50,7 @@ export default function Index() {
   const [reasoning, setReasoning] = useState<{ id: string; title: string; description: string }[]>([]);
   const [keyPoints, setKeyPoints] = useState<{ id: string; text: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<ChatInputHandle>(null);
   const { toast } = useToast();
 
   const scrollToBottom = () => {
@@ -229,10 +230,16 @@ export default function Index() {
               </>
             ) : (
               <div className="flex-1 flex flex-col">
-                <EmptyState onStartChat={(message) => message && handleSend(message)} />
+                <EmptyState onStartChat={(message) => {
+                  if (message) {
+                    handleSend(message);
+                  } else {
+                    chatInputRef.current?.focus();
+                  }
+                }} />
                 <div className="p-4 surface-elevated">
                   <div className="max-w-3xl mx-auto">
-                    <ChatInput onSend={handleSend} />
+                    <ChatInput ref={chatInputRef} onSend={handleSend} />
                   </div>
                 </div>
               </div>
