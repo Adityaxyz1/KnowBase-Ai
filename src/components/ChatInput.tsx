@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Paperclip, Mic, X, FileText, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,11 @@ interface ChatInputProps {
   className?: string;
 }
 
-export function ChatInput({ onSend, disabled, className }: ChatInputProps) {
+export interface ChatInputHandle {
+  focus: () => void;
+}
+
+export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({ onSend, disabled, className }, ref) => {
   const [message, setMessage] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<string | undefined>();
   const [selectedStyle, setSelectedStyle] = useState<string | undefined>();
@@ -20,6 +24,10 @@ export function ChatInput({ onSend, disabled, className }: ChatInputProps) {
   const [files, setFiles] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => textareaRef.current?.focus(),
+  }));
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -196,4 +204,6 @@ export function ChatInput({ onSend, disabled, className }: ChatInputProps) {
       )}
     </div>
   );
-}
+});
+
+ChatInput.displayName = 'ChatInput';
