@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, 
   MessageSquare, 
-  FolderOpen, 
   Search,
   Settings,
   ChevronDown,
@@ -14,6 +13,16 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
 interface Conversation {
@@ -37,6 +46,7 @@ interface SidebarProps {
   activeConversationId?: string;
   onNewChat: () => void;
   onSelectConversation: (id: string) => void;
+  onDeleteConversation: (id: string) => void;
   onSelectSpace: (id: string) => void;
   className?: string;
 }
@@ -47,11 +57,28 @@ export function Sidebar({
   activeConversationId,
   onNewChat,
   onSelectConversation,
+  onDeleteConversation,
   onSelectSpace,
   className
 }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedSpaces, setExpandedSpaces] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
+
+  const handleDeleteClick = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConversationToDelete(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (conversationToDelete) {
+      onDeleteConversation(conversationToDelete);
+      setConversationToDelete(null);
+    }
+    setDeleteDialogOpen(false);
+  };
 
   const filteredConversations = conversations.filter(c =>
     c.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -159,6 +186,7 @@ export function Sidebar({
                   conversation={conv}
                   isActive={conv.id === activeConversationId}
                   onClick={() => onSelectConversation(conv.id)}
+                  onDelete={(e) => handleDeleteClick(conv.id, e)}
                 />
               ))}
             </div>
@@ -178,6 +206,7 @@ export function Sidebar({
                 conversation={conv}
                 isActive={conv.id === activeConversationId}
                 onClick={() => onSelectConversation(conv.id)}
+                onDelete={(e) => handleDeleteClick(conv.id, e)}
               />
             ))}
           </div>
@@ -191,6 +220,24 @@ export function Sidebar({
           <span className="text-sm">Settings</span>
         </button>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the conversation and all its messages.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   );
 }
@@ -199,9 +246,10 @@ interface ConversationItemProps {
   conversation: Conversation;
   isActive: boolean;
   onClick: () => void;
+  onDelete: (e: React.MouseEvent) => void;
 }
 
-function ConversationItem({ conversation, isActive, onClick }: ConversationItemProps) {
+function ConversationItem({ conversation, isActive, onClick, onDelete }: ConversationItemProps) {
   const [showActions, setShowActions] = useState(false);
 
   return (
@@ -229,7 +277,10 @@ function ConversationItem({ conversation, isActive, onClick }: ConversationItemP
             exit={{ opacity: 0 }}
             className="flex items-center gap-1"
           >
-            <button className="p-1 hover:text-destructive transition-colors">
+            <button 
+              onClick={onDelete}
+              className="p-1 hover:text-destructive transition-colors"
+            >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </motion.div>
