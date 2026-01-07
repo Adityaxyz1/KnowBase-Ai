@@ -49,6 +49,23 @@ export default function Index() {
   }, [messages]);
 
   const handleSend = async (content: string) => {
+    // Auto-create conversation if none exists
+    let currentConvId = activeConversationId;
+    if (!currentConvId) {
+      const newId = Date.now().toString();
+      const title = content.slice(0, 40) + (content.length > 40 ? '...' : '');
+      const newConversation: Conversation = {
+        id: newId,
+        title,
+        preview: content.slice(0, 50) + '...',
+        timestamp: new Date(),
+        messages: [],
+      };
+      setConversations(prev => [newConversation, ...prev]);
+      setActiveConversationId(newId);
+      currentConvId = newId;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
