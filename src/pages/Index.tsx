@@ -197,6 +197,17 @@ export default function Index() {
     }
   };
 
+  const handleDeleteConversation = (id: string) => {
+    setConversations(prev => prev.filter(c => c.id !== id));
+    if (activeConversationId === id) {
+      setActiveConversationId(undefined);
+      setMessages([]);
+      setContextOpen(false);
+      setReasoning([]);
+      setKeyPoints([]);
+    }
+  };
+
   // Update conversation title after first message
   useEffect(() => {
     if (activeConversationId && messages.length === 1 && messages[0].role === 'user') {
@@ -221,6 +232,7 @@ export default function Index() {
           activeConversationId={activeConversationId}
           onNewChat={handleNewChat}
           onSelectConversation={handleSelectConversation}
+          onDeleteConversation={handleDeleteConversation}
           onSelectSpace={() => {}}
         />
       )}
