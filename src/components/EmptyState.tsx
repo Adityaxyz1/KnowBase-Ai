@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { KnowledgeOrb } from '@/components/KnowledgeOrb';
 
 interface EmptyStateProps {
-  onStartChat: () => void;
+  onStartChat: (message?: string) => void;
 }
 
 const features = [
@@ -71,7 +71,7 @@ export function EmptyState({ onStartChat }: EmptyStateProps) {
         <Button
           size="xl"
           variant="hero"
-          onClick={onStartChat}
+          onClick={() => onStartChat()}
           className="group"
         >
           Start Exploring
@@ -120,7 +120,7 @@ export function EmptyState({ onStartChat }: EmptyStateProps) {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.7 + index * 0.05 }}
-              onClick={onStartChat}
+              onClick={() => onStartChat(question)}
               className="px-4 py-2 rounded-full bg-muted/50 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
               {question}

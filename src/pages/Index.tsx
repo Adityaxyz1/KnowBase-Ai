@@ -229,7 +229,7 @@ export default function Index() {
               </>
             ) : (
               <div className="flex-1 flex flex-col">
-                <EmptyState onStartChat={() => {}} />
+                <EmptyState onStartChat={(message) => message && handleSend(message)} />
                 <div className="p-4 surface-elevated">
                   <div className="max-w-3xl mx-auto">
                     <ChatInput onSend={handleSend} />
