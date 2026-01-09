@@ -15,14 +15,17 @@ export default {
   	extend: {
   		fontFamily: {
   			sans: [
-  				'Roboto',
+  				'Source Sans Pro',
   				'ui-sans-serif',
   				'system-ui',
-  				'sans-serif',
-  				'Apple Color Emoji',
-  				'Segoe UI Emoji',
-  				'Segoe UI Symbol',
-  				'Noto Color Emoji'
+  				'-apple-system',
+  				'BlinkMacSystemFont',
+  				'Segoe UI',
+  				'Roboto',
+  				'Helvetica Neue',
+  				'Arial',
+  				'Noto Sans',
+  				'sans-serif'
   			],
   			display: [
   				'Outfit',
@@ -30,7 +33,7 @@ export default {
   				'sans-serif'
   			],
   			mono: [
-  				'Roboto Mono',
+  				'Source Code Pro',
   				'ui-monospace',
   				'SFMono-Regular',
   				'Menlo',
@@ -41,7 +44,7 @@ export default {
   				'monospace'
   			],
   			serif: [
-  				'Libre Caslon Text',
+  				'Source Serif Pro',
   				'ui-serif',
   				'Georgia',
   				'Cambria',
