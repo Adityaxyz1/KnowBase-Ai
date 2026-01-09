@@ -8,6 +8,7 @@ import { MessageList, type Message } from '@/components/MessageBubble';
 import { ContextPanel } from '@/components/ContextPanel';
 import { EmptyState } from '@/components/EmptyState';
 import { KnowledgeOrb } from '@/components/KnowledgeOrb';
+import { SettingsPanel } from '@/components/SettingsPanel';
 import { streamChat, analyzeConfidence, type ChatMessage } from '@/lib/chat';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -19,21 +20,33 @@ interface Conversation {
   timestamp: Date;
   starred?: boolean;
   messages: Message[];
+  spaceId?: string;
 }
 
-const mockSpaces = [
-  { id: '1', name: 'Research', color: '#00d4ff', conversationCount: 12 },
-  { id: '2', name: 'Work Projects', color: '#ff6b6b', conversationCount: 8 },
-  { id: '3', name: 'Learning', color: '#ffd93d', conversationCount: 5 },
+interface KnowledgeSpace {
+  id: string;
+  name: string;
+  color: string;
+  conversationCount: number;
+}
+
+const defaultSpaces: KnowledgeSpace[] = [
+  { id: '1', name: 'Research', color: '#00d4ff', conversationCount: 0 },
+  { id: '2', name: 'Work Projects', color: '#ff6b6b', conversationCount: 0 },
+  { id: '3', name: 'Learning', color: '#ffd93d', conversationCount: 0 },
 ];
 
 export default function Index() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [knowledgeSpaces, setKnowledgeSpaces] = useState<KnowledgeSpace[]>(defaultSpaces);
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>();
+  const [activeSpaceId, setActiveSpaceId] = useState<string | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [contextOpen, setContextOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const [reasoning, setReasoning] = useState<{ id: string; title: string; description: string }[]>([]);
   const [keyPoints, setKeyPoints] = useState<{ id: string; text: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -208,6 +221,66 @@ export default function Index() {
     }
   };
 
+  const handleSelectSpace = (id: string) => {
+    setActiveSpaceId(activeSpaceId === id ? undefined : id);
+  };
+
+  const handleAddSpace = (name: string, color: string) => {
+    const newSpace: KnowledgeSpace = {
+      id: Date.now().toString(),
+      name,
+      color,
+      conversationCount: 0,
+    };
+    setKnowledgeSpaces(prev => [...prev, newSpace]);
+    toast({
+      title: 'Space created',
+      description: `"${name}" has been added to your knowledge spaces.`,
+    });
+  };
+
+  const handleToggleTheme = () => {
+    setIsDarkMode(prev => !prev);
+  };
+
+  const handleClearAllData = () => {
+    setConversations([]);
+    setKnowledgeSpaces(defaultSpaces);
+    setActiveConversationId(undefined);
+    setActiveSpaceId(undefined);
+    setMessages([]);
+    setContextOpen(false);
+    setReasoning([]);
+    setKeyPoints([]);
+    setSettingsOpen(false);
+    toast({
+      title: 'All data cleared',
+      description: 'Your conversations and settings have been reset.',
+    });
+  };
+
+  const handleResetAllChats = () => {
+    setConversations([]);
+    setActiveConversationId(undefined);
+    setMessages([]);
+    setContextOpen(false);
+    setReasoning([]);
+    setKeyPoints([]);
+    setSettingsOpen(false);
+    toast({
+      title: 'Chats reset',
+      description: 'All conversations have been deleted.',
+    });
+  };
+
+  const handleResetBot = () => {
+    setSettingsOpen(false);
+    toast({
+      title: 'Bot reset',
+      description: 'AI assistant has been reset to default settings.',
+    });
+  };
+
   // Update conversation title after first message
   useEffect(() => {
     if (activeConversationId && messages.length === 1 && messages[0].role === 'user') {
@@ -223,17 +296,31 @@ export default function Index() {
   const hasMessages = messages.length > 0;
 
   return (
-    <div className="h-screen flex bg-background overflow-hidden dark">
+    <div className={cn("h-screen flex bg-background overflow-hidden", isDarkMode && "dark")}>
+      {/* Settings Panel */}
+      <SettingsPanel
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        isDarkMode={isDarkMode}
+        onToggleTheme={handleToggleTheme}
+        onClearAllData={handleClearAllData}
+        onResetAllChats={handleResetAllChats}
+        onResetBot={handleResetBot}
+      />
+
       {/* Sidebar */}
       {sidebarOpen && (
         <Sidebar
           conversations={conversations}
-          knowledgeSpaces={mockSpaces}
+          knowledgeSpaces={knowledgeSpaces}
           activeConversationId={activeConversationId}
+          activeSpaceId={activeSpaceId}
           onNewChat={handleNewChat}
           onSelectConversation={handleSelectConversation}
           onDeleteConversation={handleDeleteConversation}
-          onSelectSpace={() => {}}
+          onSelectSpace={handleSelectSpace}
+          onAddSpace={handleAddSpace}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
       )}
 

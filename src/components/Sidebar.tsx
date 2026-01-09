@@ -23,6 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { AddSpaceDialog } from '@/components/AddSpaceDialog';
 import { cn } from '@/lib/utils';
 
 interface Conversation {
@@ -44,10 +45,13 @@ interface SidebarProps {
   conversations: Conversation[];
   knowledgeSpaces: KnowledgeSpace[];
   activeConversationId?: string;
+  activeSpaceId?: string;
   onNewChat: () => void;
   onSelectConversation: (id: string) => void;
   onDeleteConversation: (id: string) => void;
   onSelectSpace: (id: string) => void;
+  onAddSpace: (name: string, color: string) => void;
+  onOpenSettings: () => void;
   className?: string;
 }
 
@@ -55,16 +59,20 @@ export function Sidebar({
   conversations,
   knowledgeSpaces,
   activeConversationId,
+  activeSpaceId,
   onNewChat,
   onSelectConversation,
   onDeleteConversation,
   onSelectSpace,
+  onAddSpace,
+  onOpenSettings,
   className
 }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedSpaces, setExpandedSpaces] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
+  const [addSpaceDialogOpen, setAddSpaceDialogOpen] = useState(false);
 
   const handleDeleteClick = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -151,7 +159,12 @@ export function Sidebar({
                   <button
                     key={space.id}
                     onClick={() => onSelectSpace(space.id)}
-                    className="flex items-center gap-3 w-full px-2 py-2 rounded-lg hover:bg-sidebar-accent transition-colors text-left"
+                    className={cn(
+                      "flex items-center gap-3 w-full px-2 py-2 rounded-lg transition-colors text-left",
+                      activeSpaceId === space.id 
+                        ? "bg-sidebar-accent text-foreground" 
+                        : "hover:bg-sidebar-accent/50"
+                    )}
                   >
                     <div 
                       className="w-3 h-3 rounded-sm"
@@ -163,7 +176,10 @@ export function Sidebar({
                     </span>
                   </button>
                 ))}
-                <button className="flex items-center gap-3 w-full px-2 py-2 rounded-lg hover:bg-sidebar-accent transition-colors text-muted-foreground">
+                <button 
+                  onClick={() => setAddSpaceDialogOpen(true)}
+                  className="flex items-center gap-3 w-full px-2 py-2 rounded-lg hover:bg-sidebar-accent transition-colors text-muted-foreground"
+                >
                   <Plus className="w-3 h-3" />
                   <span className="text-sm">Add space</span>
                 </button>
@@ -215,11 +231,21 @@ export function Sidebar({
 
       {/* Footer */}
       <div className="p-3 border-t border-sidebar-border">
-        <button className="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-sidebar-accent transition-colors text-muted-foreground hover:text-foreground">
+        <button 
+          onClick={onOpenSettings}
+          className="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-sidebar-accent transition-colors text-muted-foreground hover:text-foreground"
+        >
           <Settings className="w-4 h-4" />
           <span className="text-sm">Settings</span>
         </button>
       </div>
+
+      {/* Add Space Dialog */}
+      <AddSpaceDialog
+        open={addSpaceDialogOpen}
+        onOpenChange={setAddSpaceDialogOpen}
+        onAddSpace={onAddSpace}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
