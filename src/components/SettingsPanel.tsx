@@ -47,6 +47,11 @@ export function SettingsPanel({
   const [resetChatsDialogOpen, setResetChatsDialogOpen] = useState(false);
   const [resetBotDialogOpen, setResetBotDialogOpen] = useState(false);
 
+  const buttonVariants = {
+    hover: { scale: 1.02, x: 2 },
+    tap: { scale: 0.98 }
+  };
+
   return (
     <>
       <AnimatePresence>
@@ -78,32 +83,72 @@ export function SettingsPanel({
               </div>
 
               {/* Content */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="flex-1 overflow-y-auto p-4 space-y-6"
+              >
                 {/* Appearance Section */}
                 <div className="space-y-4">
                   <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                     Appearance
                   </h3>
                   
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                    <div className="flex items-center gap-3">
-                      {isDarkMode ? (
-                        <Moon className="w-5 h-5 text-primary" />
-                      ) : (
-                        <Sun className="w-5 h-5 text-primary" />
-                      )}
+                  <motion.div 
+                    whileHover={{ scale: 1.01 }}
+                    className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <motion.div
+                        key={isDarkMode ? 'moon' : 'sun'}
+                        initial={{ rotate: -30, opacity: 0 }}
+                        animate={{ rotate: 0, opacity: 1 }}
+                        exit={{ rotate: 30, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"
+                      >
+                        <AnimatePresence mode="wait">
+                          {isDarkMode ? (
+                            <motion.div
+                              key="moon"
+                              initial={{ scale: 0, rotate: -90 }}
+                              animate={{ scale: 1, rotate: 0 }}
+                              exit={{ scale: 0, rotate: 90 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <Moon className="w-5 h-5 text-primary" />
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="sun"
+                              initial={{ scale: 0, rotate: 90 }}
+                              animate={{ scale: 1, rotate: 0 }}
+                              exit={{ scale: 0, rotate: -90 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <Sun className="w-5 h-5 text-primary" />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
                       <div>
-                        <Label className="text-sm font-medium">Dark Mode</Label>
-                        <p className="text-xs text-muted-foreground">
-                          {isDarkMode ? 'Currently in dark mode' : 'Currently in light mode'}
-                        </p>
+                        <Label className="text-sm font-medium">Theme</Label>
+                        <motion.p 
+                          key={isDarkMode ? 'dark' : 'light'}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="text-xs text-muted-foreground"
+                        >
+                          {isDarkMode ? 'Dark mode active' : 'Light mode active'}
+                        </motion.p>
                       </div>
                     </div>
                     <Switch
                       checked={isDarkMode}
                       onCheckedChange={onToggleTheme}
                     />
-                  </div>
+                  </motion.div>
                 </div>
 
                 {/* Data Management Section */}
@@ -112,7 +157,11 @@ export function SettingsPanel({
                     Data Management
                   </h3>
                   
-                  <div className="space-y-2">
+                  <motion.div
+                    variants={buttonVariants}
+                    whileHover="hover"
+                    whileTap="tap"
+                  >
                     <Button
                       variant="outline"
                       className="w-full justify-start gap-3"
@@ -121,7 +170,13 @@ export function SettingsPanel({
                       <RotateCcw className="w-4 h-4" />
                       Reset All Chats
                     </Button>
+                  </motion.div>
                     
+                  <motion.div
+                    variants={buttonVariants}
+                    whileHover="hover"
+                    whileTap="tap"
+                  >
                     <Button
                       variant="outline"
                       className="w-full justify-start gap-3"
@@ -130,7 +185,13 @@ export function SettingsPanel({
                       <Bot className="w-4 h-4" />
                       Reset Bot Settings
                     </Button>
+                  </motion.div>
                     
+                  <motion.div
+                    variants={buttonVariants}
+                    whileHover="hover"
+                    whileTap="tap"
+                  >
                     <Button
                       variant="outline"
                       className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10"
@@ -139,26 +200,26 @@ export function SettingsPanel({
                       <Trash2 className="w-4 h-4" />
                       Clear All Data
                     </Button>
-                  </div>
+                  </motion.div>
                 </div>
-
-                {/* About Section */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                    About
-                  </h3>
-                  
-                  <div className="p-3 rounded-lg bg-muted/30 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Monitor className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm">Knowbase v1.0.0</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      AI-powered knowledge workspace for research, learning, and work projects.
-                    </p>
+              </motion.div>
+              {/* About Section */}
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="p-4 border-t border-border"
+              >
+                <div className="p-3 rounded-lg bg-muted/30 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Monitor className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm">Knowbase v1.0.0</span>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    AI-powered knowledge workspace for research, learning, and work projects.
+                  </p>
                 </div>
-              </div>
+              </motion.div>
             </motion.div>
           </>
         )}

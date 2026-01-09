@@ -9,7 +9,8 @@ import {
   Sparkles,
   Clock,
   Star,
-  Trash2
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { AddSpaceDialog } from '@/components/AddSpaceDialog';
+import { EditSpaceDialog } from '@/components/EditSpaceDialog';
 import { cn } from '@/lib/utils';
 
 interface Conversation {
@@ -32,6 +34,7 @@ interface Conversation {
   preview: string;
   timestamp: Date;
   starred?: boolean;
+  spaceId?: string;
 }
 
 interface KnowledgeSpace {
@@ -51,9 +54,41 @@ interface SidebarProps {
   onDeleteConversation: (id: string) => void;
   onSelectSpace: (id: string) => void;
   onAddSpace: (name: string, color: string) => void;
+  onUpdateSpace: (id: string, name: string, color: string) => void;
+  onDeleteSpace: (id: string) => void;
+  onAssignConversations: (spaceId: string, conversationIds: string[]) => void;
   onOpenSettings: () => void;
   className?: string;
 }
+
+// Animation variants
+const sidebarVariants = {
+  hidden: { x: -264, opacity: 0 },
+  visible: { 
+    x: 0, 
+    opacity: 1,
+    transition: { type: 'spring', damping: 25, stiffness: 300 }
+  },
+  exit: { 
+    x: -264, 
+    opacity: 0,
+    transition: { duration: 0.2, ease: 'easeIn' }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, x: -20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    x: 0,
+    transition: { delay: i * 0.05, duration: 0.3, ease: 'easeOut' }
+  })
+};
+
+const buttonVariants = {
+  tap: { scale: 0.95 },
+  hover: { scale: 1.02 }
+};
 
 export function Sidebar({
   conversations,
@@ -65,6 +100,9 @@ export function Sidebar({
   onDeleteConversation,
   onSelectSpace,
   onAddSpace,
+  onUpdateSpace,
+  onDeleteSpace,
+  onAssignConversations,
   onOpenSettings,
   className
 }: SidebarProps) {
@@ -73,11 +111,19 @@ export function Sidebar({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   const [addSpaceDialogOpen, setAddSpaceDialogOpen] = useState(false);
+  const [editSpaceDialogOpen, setEditSpaceDialogOpen] = useState(false);
+  const [spaceToEdit, setSpaceToEdit] = useState<KnowledgeSpace | null>(null);
 
   const handleDeleteClick = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setConversationToDelete(id);
     setDeleteDialogOpen(true);
+  };
+
+  const handleEditSpaceClick = (space: KnowledgeSpace, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSpaceToEdit(space);
+    setEditSpaceDialogOpen(true);
   };
 
   const confirmDelete = () => {
@@ -96,27 +142,44 @@ export function Sidebar({
   const starredConversations = filteredConversations.filter(c => c.starred);
 
   return (
-    <aside className={cn(
-      'w-64 h-full border-r border-border bg-sidebar flex flex-col',
-      className
-    )}>
+    <motion.aside
+      variants={sidebarVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+      className={cn(
+        'w-64 h-full border-r border-border bg-sidebar flex flex-col',
+        className
+      )}
+    >
       {/* Header */}
       <div className="p-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3 mb-4">
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="flex items-center gap-3 mb-4"
+        >
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
             <Sparkles className="w-4 h-4 text-primary-foreground" />
           </div>
           <span className="font-display font-semibold text-lg">Knowbase</span>
-        </div>
+        </motion.div>
         
-        <Button 
-          onClick={onNewChat}
-          className="w-full justify-start gap-2"
-          variant="glow"
+        <motion.div
+          variants={buttonVariants}
+          whileHover="hover"
+          whileTap="tap"
         >
-          <Plus className="w-4 h-4" />
-          New Chat
-        </Button>
+          <Button 
+            onClick={onNewChat}
+            className="w-full justify-start gap-2"
+            variant="glow"
+          >
+            <Plus className="w-4 h-4" />
+            New Chat
+          </Button>
+        </motion.div>
       </div>
 
       {/* Search */}
@@ -155,34 +218,56 @@ export function Sidebar({
                 exit={{ height: 0, opacity: 0 }}
                 className="mt-1 space-y-1"
               >
-                {knowledgeSpaces.map((space) => (
-                  <button
+                {knowledgeSpaces.map((space, index) => (
+                  <motion.div
                     key={space.id}
-                    onClick={() => onSelectSpace(space.id)}
-                    className={cn(
-                      "flex items-center gap-3 w-full px-2 py-2 rounded-lg transition-colors text-left",
-                      activeSpaceId === space.id 
-                        ? "bg-sidebar-accent text-foreground" 
-                        : "hover:bg-sidebar-accent/50"
-                    )}
+                    custom={index}
+                    variants={itemVariants}
+                    initial="hidden"
+                    animate="visible"
+                    className="group relative"
                   >
-                    <div 
-                      className="w-3 h-3 rounded-sm"
-                      style={{ backgroundColor: space.color }}
-                    />
-                    <span className="text-sm truncate flex-1">{space.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {space.conversationCount}
-                    </span>
-                  </button>
+                    <motion.button
+                      whileHover={{ x: 2 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => onSelectSpace(space.id)}
+                      className={cn(
+                        "flex items-center gap-3 w-full px-2 py-2 rounded-lg transition-colors text-left",
+                        activeSpaceId === space.id 
+                          ? "bg-sidebar-accent text-foreground" 
+                          : "hover:bg-sidebar-accent/50"
+                      )}
+                    >
+                      <motion.div 
+                        className="w-3 h-3 rounded-sm"
+                        style={{ backgroundColor: space.color }}
+                        whileHover={{ scale: 1.2 }}
+                      />
+                      <span className="text-sm truncate flex-1">{space.name}</span>
+                      <span className="text-xs text-muted-foreground group-hover:hidden">
+                        {space.conversationCount}
+                      </span>
+                      <motion.button
+                        initial={{ opacity: 0 }}
+                        whileHover={{ scale: 1.1 }}
+                        onClick={(e) => handleEditSpaceClick(space, e)}
+                        className="hidden group-hover:flex p-1 hover:text-primary transition-colors"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </motion.button>
+                    </motion.button>
+                  </motion.div>
                 ))}
-                <button 
+                <motion.button
+                  variants={buttonVariants}
+                  whileHover="hover"
+                  whileTap="tap"
                   onClick={() => setAddSpaceDialogOpen(true)}
                   className="flex items-center gap-3 w-full px-2 py-2 rounded-lg hover:bg-sidebar-accent transition-colors text-muted-foreground"
                 >
                   <Plus className="w-3 h-3" />
                   <span className="text-sm">Add space</span>
-                </button>
+                </motion.button>
               </motion.div>
             )}
           </AnimatePresence>
@@ -195,17 +280,22 @@ export function Sidebar({
               <Star className="w-3 h-3" />
               Starred
             </div>
-            <div className="mt-1 space-y-1">
-              {starredConversations.map((conv) => (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mt-1 space-y-1"
+            >
+              {starredConversations.map((conv, index) => (
                 <ConversationItem
                   key={conv.id}
                   conversation={conv}
                   isActive={conv.id === activeConversationId}
                   onClick={() => onSelectConversation(conv.id)}
                   onDelete={(e) => handleDeleteClick(conv.id, e)}
+                  index={index}
                 />
               ))}
-            </div>
+            </motion.div>
           </div>
         )}
 
@@ -215,30 +305,43 @@ export function Sidebar({
             <Clock className="w-3 h-3" />
             Recent
           </div>
-          <div className="mt-1 space-y-1">
-            {recentConversations.map((conv) => (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mt-1 space-y-1"
+          >
+            {recentConversations.map((conv, index) => (
               <ConversationItem
                 key={conv.id}
                 conversation={conv}
                 isActive={conv.id === activeConversationId}
                 onClick={() => onSelectConversation(conv.id)}
                 onDelete={(e) => handleDeleteClick(conv.id, e)}
+                index={index}
               />
             ))}
-          </div>
+          </motion.div>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="p-3 border-t border-sidebar-border">
-        <button 
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="p-3 border-t border-sidebar-border"
+      >
+        <motion.button
+          variants={buttonVariants}
+          whileHover="hover"
+          whileTap="tap"
           onClick={onOpenSettings}
           className="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-sidebar-accent transition-colors text-muted-foreground hover:text-foreground"
         >
           <Settings className="w-4 h-4" />
           <span className="text-sm">Settings</span>
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
       {/* Add Space Dialog */}
       <AddSpaceDialog
@@ -247,24 +350,43 @@ export function Sidebar({
         onAddSpace={onAddSpace}
       />
 
+      {/* Edit Space Dialog */}
+      <EditSpaceDialog
+        open={editSpaceDialogOpen}
+        onOpenChange={setEditSpaceDialogOpen}
+        space={spaceToEdit}
+        conversations={conversations}
+        onUpdateSpace={onUpdateSpace}
+        onDeleteSpace={onDeleteSpace}
+        onAssignConversations={onAssignConversations}
+      />
+
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the conversation and all its messages.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.2 }}
+          >
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the conversation and all its messages.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Delete
+                </AlertDialogAction>
+              </motion.div>
+            </AlertDialogFooter>
+          </motion.div>
         </AlertDialogContent>
       </AlertDialog>
-    </aside>
+    </motion.aside>
   );
 }
 
@@ -273,13 +395,20 @@ interface ConversationItemProps {
   isActive: boolean;
   onClick: () => void;
   onDelete: (e: React.MouseEvent) => void;
+  index: number;
 }
 
-function ConversationItem({ conversation, isActive, onClick, onDelete }: ConversationItemProps) {
+function ConversationItem({ conversation, isActive, onClick, onDelete, index }: ConversationItemProps) {
   const [showActions, setShowActions] = useState(false);
 
   return (
-    <button
+    <motion.button
+      custom={index}
+      variants={itemVariants}
+      initial="hidden"
+      animate="visible"
+      whileHover={{ x: 2 }}
+      whileTap={{ scale: 0.98 }}
       onClick={onClick}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
@@ -298,20 +427,23 @@ function ConversationItem({ conversation, isActive, onClick, onDelete }: Convers
       <AnimatePresence>
         {showActions && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.15 }}
             className="flex items-center gap-1"
           >
-            <button 
+            <motion.button
+              whileHover={{ scale: 1.2 }}
+              whileTap={{ scale: 0.9 }}
               onClick={onDelete}
               className="p-1 hover:text-destructive transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            </motion.button>
           </motion.div>
         )}
       </AnimatePresence>
-    </button>
+    </motion.button>
   );
 }
