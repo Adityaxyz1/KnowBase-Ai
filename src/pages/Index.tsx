@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { PanelRightOpen, PanelRightClose, Menu, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sidebar } from '@/components/Sidebar';
@@ -239,9 +239,62 @@ export default function Index() {
     });
   };
 
+  const handleUpdateSpace = (id: string, name: string, color: string) => {
+    setKnowledgeSpaces(prev =>
+      prev.map(space =>
+        space.id === id ? { ...space, name, color } : space
+      )
+    );
+    toast({
+      title: 'Space updated',
+      description: `"${name}" has been updated.`,
+    });
+  };
+
+  const handleDeleteSpace = (id: string) => {
+    // Unassign all conversations from this space
+    setConversations(prev =>
+      prev.map(c => c.spaceId === id ? { ...c, spaceId: undefined } : c)
+    );
+    setKnowledgeSpaces(prev => prev.filter(space => space.id !== id));
+    if (activeSpaceId === id) {
+      setActiveSpaceId(undefined);
+    }
+    toast({
+      title: 'Space deleted',
+      description: 'The knowledge space has been removed.',
+    });
+  };
+
+  const handleAssignConversations = (spaceId: string, conversationIds: string[]) => {
+    setConversations(prev =>
+      prev.map(c => ({
+        ...c,
+        spaceId: conversationIds.includes(c.id) ? spaceId : (c.spaceId === spaceId ? undefined : c.spaceId)
+      }))
+    );
+    // Update conversation count
+    setKnowledgeSpaces(prev =>
+      prev.map(space => ({
+        ...space,
+        conversationCount: space.id === spaceId ? conversationIds.length : 
+          conversations.filter(c => c.spaceId === space.id && !conversationIds.includes(c.id)).length
+      }))
+    );
+  };
+
   const handleToggleTheme = () => {
     setIsDarkMode(prev => !prev);
   };
+
+  // Apply theme to document
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
   const handleClearAllData = () => {
     setConversations([]);
@@ -296,7 +349,7 @@ export default function Index() {
   const hasMessages = messages.length > 0;
 
   return (
-    <div className={cn("h-screen flex bg-background overflow-hidden", isDarkMode && "dark")}>
+    <div className="h-screen flex bg-background overflow-hidden transition-colors duration-300">
       {/* Settings Panel */}
       <SettingsPanel
         isOpen={settingsOpen}
@@ -309,20 +362,25 @@ export default function Index() {
       />
 
       {/* Sidebar */}
-      {sidebarOpen && (
-        <Sidebar
-          conversations={conversations}
-          knowledgeSpaces={knowledgeSpaces}
-          activeConversationId={activeConversationId}
-          activeSpaceId={activeSpaceId}
-          onNewChat={handleNewChat}
-          onSelectConversation={handleSelectConversation}
-          onDeleteConversation={handleDeleteConversation}
-          onSelectSpace={handleSelectSpace}
-          onAddSpace={handleAddSpace}
-          onOpenSettings={() => setSettingsOpen(true)}
-        />
-      )}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <Sidebar
+            conversations={conversations}
+            knowledgeSpaces={knowledgeSpaces}
+            activeConversationId={activeConversationId}
+            activeSpaceId={activeSpaceId}
+            onNewChat={handleNewChat}
+            onSelectConversation={handleSelectConversation}
+            onDeleteConversation={handleDeleteConversation}
+            onSelectSpace={handleSelectSpace}
+            onAddSpace={handleAddSpace}
+            onUpdateSpace={handleUpdateSpace}
+            onDeleteSpace={handleDeleteSpace}
+            onAssignConversations={handleAssignConversations}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Main content */}
       <main className="flex-1 flex flex-col min-w-0">
