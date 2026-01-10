@@ -283,6 +283,32 @@ export default function Index() {
     );
   };
 
+  const handleAddConversationToSpace = (conversationId: string, spaceId: string | undefined) => {
+    const oldSpaceId = conversations.find(c => c.id === conversationId)?.spaceId;
+    
+    setConversations(prev =>
+      prev.map(c => c.id === conversationId ? { ...c, spaceId } : c)
+    );
+    
+    // Update conversation counts
+    setKnowledgeSpaces(prev =>
+      prev.map(space => {
+        let count = space.conversationCount;
+        if (space.id === oldSpaceId) count--;
+        if (space.id === spaceId) count++;
+        return { ...space, conversationCount: Math.max(0, count) };
+      })
+    );
+
+    const spaceName = knowledgeSpaces.find(s => s.id === spaceId)?.name;
+    toast({
+      title: spaceId ? 'Added to space' : 'Removed from space',
+      description: spaceId 
+        ? `Conversation added to "${spaceName}".`
+        : 'Conversation removed from space.',
+    });
+  };
+
   const handleToggleTheme = () => {
     setIsDarkMode(prev => !prev);
   };
@@ -377,6 +403,7 @@ export default function Index() {
             onUpdateSpace={handleUpdateSpace}
             onDeleteSpace={handleDeleteSpace}
             onAssignConversations={handleAssignConversations}
+            onAddConversationToSpace={handleAddConversationToSpace}
             onOpenSettings={() => setSettingsOpen(true)}
           />
         )}
