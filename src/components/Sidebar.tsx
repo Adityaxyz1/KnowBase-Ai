@@ -120,6 +120,8 @@ export function Sidebar({
   const [spaceToEdit, setSpaceToEdit] = useState<KnowledgeSpace | null>(null);
   const [addToSpacePopupOpen, setAddToSpacePopupOpen] = useState(false);
   const [conversationForSpace, setConversationForSpace] = useState<Conversation | null>(null);
+  const [deleteSpaceDialogOpen, setDeleteSpaceDialogOpen] = useState(false);
+  const [spaceToDelete, setSpaceToDelete] = useState<KnowledgeSpace | null>(null);
 
   const handleAddToSpaceClick = (conv: Conversation, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -132,6 +134,20 @@ export function Sidebar({
       onAddConversationToSpace(conversationForSpace.id, spaceId);
     }
     setConversationForSpace(null);
+  };
+
+  const handleDeleteSpaceClick = (space: KnowledgeSpace, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSpaceToDelete(space);
+    setDeleteSpaceDialogOpen(true);
+  };
+
+  const confirmDeleteSpace = () => {
+    if (spaceToDelete) {
+      onDeleteSpace(spaceToDelete.id);
+      setSpaceToDelete(null);
+    }
+    setDeleteSpaceDialogOpen(false);
   };
 
   const handleDeleteClick = (id: string, e: React.MouseEvent) => {
@@ -279,10 +295,7 @@ export function Sidebar({
                         <motion.button
                           initial={{ opacity: 0 }}
                           whileHover={{ scale: 1.1 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteSpace(space.id);
-                          }}
+                          onClick={(e) => handleDeleteSpaceClick(space, e)}
                           className="p-1 hover:text-destructive transition-colors"
                         >
                           <X className="w-3 h-3" />
@@ -426,6 +439,47 @@ export function Sidebar({
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                   Delete
+                </AlertDialogAction>
+              </motion.div>
+            </AlertDialogFooter>
+          </motion.div>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Space Confirmation Dialog */}
+      <AlertDialog open={deleteSpaceDialogOpen} onOpenChange={setDeleteSpaceDialogOpen}>
+        <AlertDialogContent>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.2 }}
+          >
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <motion.div 
+                  className="w-4 h-4 rounded-sm"
+                  style={{ backgroundColor: spaceToDelete?.color }}
+                />
+                Delete "{spaceToDelete?.name}"?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete this knowledge space. Conversations assigned to this space will be unassigned but not deleted.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="gap-2 sm:gap-0">
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <AlertDialogCancel className="flex items-center gap-2">
+                  <X className="w-4 h-4" />
+                  Cancel
+                </AlertDialogCancel>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <AlertDialogAction 
+                  onClick={confirmDeleteSpace} 
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Confirm Delete
                 </AlertDialogAction>
               </motion.div>
             </AlertDialogFooter>
