@@ -10,7 +10,9 @@ import {
   Clock,
   Star,
   Trash2,
-  Pencil
+  Pencil,
+  FolderPlus,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +28,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { AddSpaceDialog } from '@/components/AddSpaceDialog';
 import { EditSpaceDialog } from '@/components/EditSpaceDialog';
+import { AddToSpacePopup } from '@/components/AddToSpacePopup';
 import { cn } from '@/lib/utils';
 
 interface Conversation {
@@ -57,6 +60,7 @@ interface SidebarProps {
   onUpdateSpace: (id: string, name: string, color: string) => void;
   onDeleteSpace: (id: string) => void;
   onAssignConversations: (spaceId: string, conversationIds: string[]) => void;
+  onAddConversationToSpace: (conversationId: string, spaceId: string | undefined) => void;
   onOpenSettings: () => void;
   className?: string;
 }
@@ -103,6 +107,7 @@ export function Sidebar({
   onUpdateSpace,
   onDeleteSpace,
   onAssignConversations,
+  onAddConversationToSpace,
   onOpenSettings,
   className
 }: SidebarProps) {
@@ -113,6 +118,21 @@ export function Sidebar({
   const [addSpaceDialogOpen, setAddSpaceDialogOpen] = useState(false);
   const [editSpaceDialogOpen, setEditSpaceDialogOpen] = useState(false);
   const [spaceToEdit, setSpaceToEdit] = useState<KnowledgeSpace | null>(null);
+  const [addToSpacePopupOpen, setAddToSpacePopupOpen] = useState(false);
+  const [conversationForSpace, setConversationForSpace] = useState<Conversation | null>(null);
+
+  const handleAddToSpaceClick = (conv: Conversation, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConversationForSpace(conv);
+    setAddToSpacePopupOpen(true);
+  };
+
+  const handleSpaceSelected = (spaceId: string | undefined) => {
+    if (conversationForSpace) {
+      onAddConversationToSpace(conversationForSpace.id, spaceId);
+    }
+    setConversationForSpace(null);
+  };
 
   const handleDeleteClick = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -247,14 +267,27 @@ export function Sidebar({
                       <span className="text-xs text-muted-foreground group-hover:hidden">
                         {space.conversationCount}
                       </span>
-                      <motion.button
-                        initial={{ opacity: 0 }}
-                        whileHover={{ scale: 1.1 }}
-                        onClick={(e) => handleEditSpaceClick(space, e)}
-                        className="hidden group-hover:flex p-1 hover:text-primary transition-colors"
-                      >
-                        <Pencil className="w-3 h-3" />
-                      </motion.button>
+                      <div className="hidden group-hover:flex items-center gap-0.5">
+                        <motion.button
+                          initial={{ opacity: 0 }}
+                          whileHover={{ scale: 1.1 }}
+                          onClick={(e) => handleEditSpaceClick(space, e)}
+                          className="p-1 hover:text-primary transition-colors"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </motion.button>
+                        <motion.button
+                          initial={{ opacity: 0 }}
+                          whileHover={{ scale: 1.1 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteSpace(space.id);
+                          }}
+                          className="p-1 hover:text-destructive transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </motion.button>
+                      </div>
                     </motion.button>
                   </motion.div>
                 ))}
@@ -286,13 +319,15 @@ export function Sidebar({
               className="mt-1 space-y-1"
             >
               {starredConversations.map((conv, index) => (
-                <ConversationItem
+              <ConversationItem
                   key={conv.id}
                   conversation={conv}
                   isActive={conv.id === activeConversationId}
                   onClick={() => onSelectConversation(conv.id)}
                   onDelete={(e) => handleDeleteClick(conv.id, e)}
+                  onAddToSpace={(e) => handleAddToSpaceClick(conv, e)}
                   index={index}
+                  hasSpace={!!conv.spaceId}
                 />
               ))}
             </motion.div>
@@ -317,7 +352,9 @@ export function Sidebar({
                 isActive={conv.id === activeConversationId}
                 onClick={() => onSelectConversation(conv.id)}
                 onDelete={(e) => handleDeleteClick(conv.id, e)}
+                onAddToSpace={(e) => handleAddToSpaceClick(conv, e)}
                 index={index}
+                hasSpace={!!conv.spaceId}
               />
             ))}
           </motion.div>
@@ -361,6 +398,15 @@ export function Sidebar({
         onAssignConversations={onAssignConversations}
       />
 
+      {/* Add to Space Popup */}
+      <AddToSpacePopup
+        open={addToSpacePopupOpen}
+        onOpenChange={setAddToSpacePopupOpen}
+        spaces={knowledgeSpaces}
+        currentSpaceId={conversationForSpace?.spaceId}
+        onSelectSpace={handleSpaceSelected}
+      />
+
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -395,10 +441,12 @@ interface ConversationItemProps {
   isActive: boolean;
   onClick: () => void;
   onDelete: (e: React.MouseEvent) => void;
+  onAddToSpace: (e: React.MouseEvent) => void;
   index: number;
+  hasSpace?: boolean;
 }
 
-function ConversationItem({ conversation, isActive, onClick, onDelete, index }: ConversationItemProps) {
+function ConversationItem({ conversation, isActive, onClick, onDelete, onAddToSpace, index, hasSpace }: ConversationItemProps) {
   const [showActions, setShowActions] = useState(false);
 
   return (
@@ -433,6 +481,18 @@ function ConversationItem({ conversation, isActive, onClick, onDelete, index }: 
             transition={{ duration: 0.15 }}
             className="flex items-center gap-1"
           >
+            <motion.button
+              whileHover={{ scale: 1.2 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={onAddToSpace}
+              className={cn(
+                "p-1 transition-colors",
+                hasSpace ? "text-primary hover:text-primary/80" : "hover:text-primary"
+              )}
+              title="Add to space"
+            >
+              <FolderPlus className="w-3.5 h-3.5" />
+            </motion.button>
             <motion.button
               whileHover={{ scale: 1.2 }}
               whileTap={{ scale: 0.9 }}
