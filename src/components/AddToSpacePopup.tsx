@@ -131,33 +131,43 @@ export function AddToSpacePopup({
               </div>
 
               {/* Footer */}
-              <div className="p-3 border-t border-border bg-muted/20 flex gap-2">
+              <div className="p-4 border-t border-border bg-muted/20 flex gap-3">
                 {currentSpaceId && (
+                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRemoveFromSpace}
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 flex items-center gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Remove
+                    </Button>
+                  </motion.div>
+                )}
+                <div className="flex-1" />
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleRemoveFromSpace}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => onOpenChange(false)}
+                    className="flex items-center gap-2"
                   >
-                    Remove
+                    <X className="w-4 h-4" />
+                    Close
                   </Button>
-                )}
-                <div className="flex-1" />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onOpenChange(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleConfirm}
-                  disabled={!selectedSpaceId && !currentSpaceId}
-                >
-                  <Check className="w-4 h-4 mr-1" />
-                  Confirm
-                </Button>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button
+                    size="sm"
+                    onClick={handleConfirm}
+                    disabled={!selectedSpaceId && !currentSpaceId}
+                    className="flex items-center gap-2"
+                  >
+                    <Check className="w-4 h-4" />
+                    Confirm
+                  </Button>
+                </motion.div>
               </div>
             </div>
           </motion.div>
