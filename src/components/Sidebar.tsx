@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, 
@@ -12,7 +12,9 @@ import {
   Trash2,
   Pencil,
   FolderPlus,
-  X
+  X,
+  GripVertical,
+  Filter
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +28,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { AddSpaceDialog } from '@/components/AddSpaceDialog';
 import { EditSpaceDialog } from '@/components/EditSpaceDialog';
 import { AddToSpacePopup } from '@/components/AddToSpacePopup';
@@ -112,6 +120,7 @@ export function Sidebar({
   className
 }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterSpaceId, setFilterSpaceId] = useState<string | null>(null);
   const [expandedSpaces, setExpandedSpaces] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
@@ -122,6 +131,8 @@ export function Sidebar({
   const [conversationForSpace, setConversationForSpace] = useState<Conversation | null>(null);
   const [deleteSpaceDialogOpen, setDeleteSpaceDialogOpen] = useState(false);
   const [spaceToDelete, setSpaceToDelete] = useState<KnowledgeSpace | null>(null);
+  const [draggedConversation, setDraggedConversation] = useState<string | null>(null);
+  const [dragOverSpace, setDragOverSpace] = useState<string | null>(null);
 
   const handleAddToSpaceClick = (conv: Conversation, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -170,12 +181,36 @@ export function Sidebar({
     setDeleteDialogOpen(false);
   };
 
-  const filteredConversations = conversations.filter(c =>
-    c.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredConversations = conversations.filter(c => {
+    const matchesSearch = c.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = filterSpaceId === null || c.spaceId === filterSpaceId;
+    return matchesSearch && matchesFilter;
+  });
 
-  const recentConversations = filteredConversations.slice(0, 5);
+  const recentConversations = filteredConversations.slice(0, 10);
   const starredConversations = filteredConversations.filter(c => c.starred);
+
+  const handleDragStart = (conversationId: string) => {
+    setDraggedConversation(conversationId);
+  };
+
+  const handleDragEnd = () => {
+    if (draggedConversation && dragOverSpace) {
+      onAddConversationToSpace(draggedConversation, dragOverSpace);
+    }
+    setDraggedConversation(null);
+    setDragOverSpace(null);
+  };
+
+  const handleDragOverSpace = (spaceId: string) => {
+    setDragOverSpace(spaceId);
+  };
+
+  const handleDragLeaveSpace = () => {
+    setDragOverSpace(null);
+  };
+
+  const filterSpace = filterSpaceId ? knowledgeSpaces.find(s => s.id === filterSpaceId) : null;
 
   return (
     <motion.aside
@@ -199,7 +234,7 @@ export function Sidebar({
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
             <Sparkles className="w-4 h-4 text-primary-foreground" />
           </div>
-          <span className="font-display font-semibold text-lg">Knowbase</span>
+          <span className="font-display font-semibold text-lg">Knowbase AI</span>
         </motion.div>
         
         <motion.div
@@ -218,17 +253,67 @@ export function Sidebar({
         </motion.div>
       </div>
 
-      {/* Search */}
-      <div className="p-3 border-b border-sidebar-border">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search chats..."
-            className="pl-9 h-9 bg-sidebar-accent border-transparent"
-          />
+      {/* Search with Filter */}
+      <div className="p-3 border-b border-sidebar-border space-y-2">
+        <div className="relative flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search chats..."
+              className="pl-9 h-9 bg-sidebar-accent border-transparent"
+            />
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={cn(
+                  "h-9 w-9 rounded-md flex items-center justify-center transition-colors",
+                  filterSpaceId ? "bg-primary text-primary-foreground" : "bg-sidebar-accent hover:bg-sidebar-accent/80"
+                )}
+              >
+                <Filter className="w-4 h-4" />
+              </motion.button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => setFilterSpaceId(null)}>
+                <span className={cn(!filterSpaceId && "font-semibold")}>All Spaces</span>
+              </DropdownMenuItem>
+              {knowledgeSpaces.map(space => (
+                <DropdownMenuItem key={space.id} onClick={() => setFilterSpaceId(space.id)}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: space.color }} />
+                    <span className={cn(filterSpaceId === space.id && "font-semibold")}>{space.name}</span>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+        <AnimatePresence>
+          {filterSpace && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="flex items-center gap-2"
+            >
+              <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-sidebar-accent text-xs">
+                <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: filterSpace.color }} />
+                <span>Filtering: {filterSpace.name}</span>
+                <button 
+                  onClick={() => setFilterSpaceId(null)}
+                  className="hover:text-destructive transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Content */}
@@ -262,22 +347,34 @@ export function Sidebar({
                     initial="hidden"
                     animate="visible"
                     className="group relative"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      handleDragOverSpace(space.id);
+                    }}
+                    onDragLeave={handleDragLeaveSpace}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      handleDragEnd();
+                    }}
                   >
                     <motion.button
                       whileHover={{ x: 2 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => onSelectSpace(space.id)}
                       className={cn(
-                        "flex items-center gap-3 w-full px-2 py-2 rounded-lg transition-colors text-left",
+                        "flex items-center gap-3 w-full px-2 py-2 rounded-lg transition-all text-left",
                         activeSpaceId === space.id 
                           ? "bg-sidebar-accent text-foreground" 
-                          : "hover:bg-sidebar-accent/50"
+                          : "hover:bg-sidebar-accent/50",
+                        dragOverSpace === space.id && "ring-2 ring-primary bg-primary/10"
                       )}
                     >
                       <motion.div 
                         className="w-3 h-3 rounded-sm"
                         style={{ backgroundColor: space.color }}
                         whileHover={{ scale: 1.2 }}
+                        animate={dragOverSpace === space.id ? { scale: [1, 1.3, 1] } : {}}
+                        transition={{ repeat: dragOverSpace === space.id ? Infinity : 0, duration: 0.5 }}
                       />
                       <span className="text-sm truncate flex-1">{space.name}</span>
                       <span className="text-xs text-muted-foreground group-hover:hidden">
@@ -332,7 +429,7 @@ export function Sidebar({
               className="mt-1 space-y-1"
             >
               {starredConversations.map((conv, index) => (
-              <ConversationItem
+                <ConversationItem
                   key={conv.id}
                   conversation={conv}
                   isActive={conv.id === activeConversationId}
@@ -341,6 +438,8 @@ export function Sidebar({
                   onAddToSpace={(e) => handleAddToSpaceClick(conv, e)}
                   index={index}
                   hasSpace={!!conv.spaceId}
+                  onDragStart={() => handleDragStart(conv.id)}
+                  isDragging={draggedConversation === conv.id}
                 />
               ))}
             </motion.div>
@@ -368,6 +467,8 @@ export function Sidebar({
                 onAddToSpace={(e) => handleAddToSpaceClick(conv, e)}
                 index={index}
                 hasSpace={!!conv.spaceId}
+                onDragStart={() => handleDragStart(conv.id)}
+                isDragging={draggedConversation === conv.id}
               />
             ))}
           </motion.div>
@@ -498,66 +599,90 @@ interface ConversationItemProps {
   onAddToSpace: (e: React.MouseEvent) => void;
   index: number;
   hasSpace?: boolean;
+  onDragStart?: () => void;
+  isDragging?: boolean;
 }
 
-function ConversationItem({ conversation, isActive, onClick, onDelete, onAddToSpace, index, hasSpace }: ConversationItemProps) {
+function ConversationItem({ 
+  conversation, 
+  isActive, 
+  onClick, 
+  onDelete, 
+  onAddToSpace, 
+  index, 
+  hasSpace,
+  onDragStart,
+  isDragging
+}: ConversationItemProps) {
   const [showActions, setShowActions] = useState(false);
 
   return (
-    <motion.button
+    <motion.div
       custom={index}
       variants={itemVariants}
       initial="hidden"
       animate="visible"
-      whileHover={{ x: 2 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
+      draggable
+      onDragStart={onDragStart}
       className={cn(
-        'flex items-start gap-3 w-full px-2 py-2 rounded-lg transition-colors text-left group',
+        'flex items-start gap-1 w-full rounded-lg transition-all text-left group cursor-grab active:cursor-grabbing',
         isActive 
           ? 'bg-sidebar-accent text-foreground' 
-          : 'hover:bg-sidebar-accent/50 text-sidebar-foreground'
+          : 'hover:bg-sidebar-accent/50 text-sidebar-foreground',
+        isDragging && 'opacity-50 scale-95'
       )}
     >
-      <MessageSquare className="w-4 h-4 mt-0.5 flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{conversation.title}</p>
-        <p className="text-xs text-muted-foreground truncate">{conversation.preview}</p>
-      </div>
-      <AnimatePresence>
-        {showActions && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            transition={{ duration: 0.15 }}
-            className="flex items-center gap-1"
-          >
-            <motion.button
-              whileHover={{ scale: 1.2 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={onAddToSpace}
-              className={cn(
-                "p-1 transition-colors",
-                hasSpace ? "text-primary hover:text-primary/80" : "hover:text-primary"
-              )}
-              title="Add to space"
+      <motion.div
+        whileHover={{ scale: 1.1 }}
+        className="p-2 opacity-0 group-hover:opacity-50 hover:!opacity-100 flex-shrink-0"
+      >
+        <GripVertical className="w-3 h-3" />
+      </motion.div>
+      
+      <button
+        onClick={onClick}
+        onMouseEnter={() => setShowActions(true)}
+        onMouseLeave={() => setShowActions(false)}
+        className="flex items-start gap-2 flex-1 py-2 pr-2"
+      >
+        <MessageSquare className="w-4 h-4 mt-0.5 flex-shrink-0" />
+        <div className="flex-1 min-w-0 text-left">
+          <p className="text-sm font-medium truncate">{conversation.title}</p>
+          <p className="text-xs text-muted-foreground truncate">{conversation.preview}</p>
+        </div>
+        <AnimatePresence>
+          {showActions && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.15 }}
+              className="flex items-center gap-1"
             >
-              <FolderPlus className="w-3.5 h-3.5" />
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.2 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={onDelete}
-              className="p-1 hover:text-destructive transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </motion.button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.2 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={onAddToSpace}
+                className={cn(
+                  "p-1 transition-colors",
+                  hasSpace ? "text-primary hover:text-primary/80" : "hover:text-primary"
+                )}
+                title="Add to space"
+              >
+                <FolderPlus className="w-3.5 h-3.5" />
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.2 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={onDelete}
+                className="p-1 hover:text-destructive transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </button>
+    </motion.div>
   );
 }

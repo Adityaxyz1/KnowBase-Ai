@@ -431,7 +431,7 @@ export default function Index() {
                 <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
                   <Sparkles className="w-4 h-4 text-primary-foreground" />
                 </div>
-                <span className="font-display font-semibold">Knowbase</span>
+                <span className="font-display font-semibold">Knowbase AI</span>
               </div>
             )}
           </div>
