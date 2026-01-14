@@ -11,6 +11,7 @@ import { KnowledgeOrb } from '@/components/KnowledgeOrb';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { streamChat, analyzeConfidence, type ChatMessage } from '@/lib/chat';
 import { useToast } from '@/hooks/use-toast';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { cn } from '@/lib/utils';
 
 interface Conversation {
@@ -37,8 +38,12 @@ const defaultSpaces: KnowledgeSpace[] = [
 ];
 
 export default function Index() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [knowledgeSpaces, setKnowledgeSpaces] = useState<KnowledgeSpace[]>(defaultSpaces);
+  // Persisted state
+  const [conversations, setConversations] = useLocalStorage<Conversation[]>('knowbase-conversations', []);
+  const [knowledgeSpaces, setKnowledgeSpaces] = useLocalStorage<KnowledgeSpace[]>('knowbase-spaces', defaultSpaces);
+  const [isDarkMode, setIsDarkMode] = useLocalStorage<boolean>('knowbase-theme-dark', true);
+  
+  // Session state
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>();
   const [activeSpaceId, setActiveSpaceId] = useState<string | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -46,7 +51,6 @@ export default function Index() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [contextOpen, setContextOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true);
   const [reasoning, setReasoning] = useState<{ id: string; title: string; description: string }[]>([]);
   const [keyPoints, setKeyPoints] = useState<{ id: string; text: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -325,6 +329,7 @@ export default function Index() {
   const handleClearAllData = () => {
     setConversations([]);
     setKnowledgeSpaces(defaultSpaces);
+    setIsDarkMode(true);
     setActiveConversationId(undefined);
     setActiveSpaceId(undefined);
     setMessages([]);
