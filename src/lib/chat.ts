@@ -1,23 +1,51 @@
+export interface ChatMessageContent {
+  type: 'text' | 'image_url';
+  text?: string;
+  image_url?: {
+    url: string;
+  };
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
-  content: string;
+  content: string | ChatMessageContent[];
+}
+
+export interface FileAttachment {
+  name: string;
+  type: string;
+  base64: string;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
+export async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export async function streamChat({
   messages,
+  files,
   onDelta,
   onDone,
   onError,
 }: {
   messages: ChatMessage[];
+  files?: FileAttachment[];
   onDelta: (deltaText: string) => void;
   onDone: () => void;
   onError: (error: string) => void;
 }) {
   try {
-    console.log('Starting chat stream with', messages.length, 'messages');
+    console.log('Starting chat stream with', messages.length, 'messages and', files?.length || 0, 'files');
     
     const resp = await fetch(CHAT_URL, {
       method: 'POST',
@@ -25,7 +53,7 @@ export async function streamChat({
         'Content-Type': 'application/json',
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ messages, files }),
     });
 
     if (!resp.ok) {

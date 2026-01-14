@@ -9,7 +9,7 @@ import { ContextPanel } from '@/components/ContextPanel';
 import { EmptyState } from '@/components/EmptyState';
 import { KnowledgeOrb } from '@/components/KnowledgeOrb';
 import { SettingsPanel } from '@/components/SettingsPanel';
-import { streamChat, analyzeConfidence, type ChatMessage } from '@/lib/chat';
+import { streamChat, analyzeConfidence, type ChatMessage, type FileAttachment } from '@/lib/chat';
 import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { cn } from '@/lib/utils';
@@ -65,7 +65,7 @@ export default function Index() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = async (content: string) => {
+  const handleSend = async (content: string, files?: FileAttachment[]) => {
     // Auto-create conversation if none exists
     let currentConvId = activeConversationId;
     if (!currentConvId) {
@@ -83,11 +83,17 @@ export default function Index() {
       currentConvId = newId;
     }
 
+    // Create user message with optional file attachments
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content,
       timestamp: new Date(),
+      attachments: files?.map(f => ({
+        name: f.name,
+        type: f.type,
+        preview: f.type.startsWith('image/') ? f.base64 : undefined
+      }))
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -95,11 +101,18 @@ export default function Index() {
     setContextOpen(true);
 
     // Set reasoning steps
-    setReasoning([
-      { id: '1', title: 'Analyzing question', description: 'Understanding context and intent' },
-      { id: '2', title: 'Retrieving knowledge', description: 'Searching relevant information' },
-      { id: '3', title: 'Generating response', description: 'Synthesizing comprehensive answer' },
-    ]);
+    const reasoningSteps = files && files.length > 0
+      ? [
+          { id: '1', title: 'Processing attachments', description: 'Analyzing uploaded files' },
+          { id: '2', title: 'Analyzing content', description: 'Understanding context and intent' },
+          { id: '3', title: 'Generating response', description: 'Synthesizing comprehensive answer' },
+        ]
+      : [
+          { id: '1', title: 'Analyzing question', description: 'Understanding context and intent' },
+          { id: '2', title: 'Retrieving knowledge', description: 'Searching relevant information' },
+          { id: '3', title: 'Generating response', description: 'Synthesizing comprehensive answer' },
+        ];
+    setReasoning(reasoningSteps);
 
     // Create assistant message placeholder
     const assistantId = (Date.now() + 1).toString();
@@ -113,6 +126,7 @@ export default function Index() {
 
     await streamChat({
       messages: chatMessages,
+      files,
       onDelta: (chunk) => {
         assistantContent += chunk;
         setMessages(prev => {

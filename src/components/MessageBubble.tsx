@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Bot, Copy, Check, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { User, Bot, Copy, Check, ThumbsUp, ThumbsDown, FileText, Image } from 'lucide-react';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -7,6 +7,12 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Button } from '@/components/ui/button';
 import { ConfidenceIndicator } from '@/components/ConfidenceIndicator';
 import { cn } from '@/lib/utils';
+
+export interface MessageAttachment {
+  name: string;
+  type: string;
+  preview?: string; // base64 for images
+}
 
 export interface Message {
   id: string;
@@ -16,6 +22,7 @@ export interface Message {
   confidence?: 'high' | 'medium' | 'low';
   reasoning?: string[];
   sources?: string[];
+  attachments?: MessageAttachment[];
 }
 
 interface MessageBubbleProps {
@@ -69,6 +76,40 @@ export function MessageBubble({ message, isLatest }: MessageBubbleProps) {
             })}
           </span>
         </div>
+
+        {/* Attachments */}
+        {message.attachments && message.attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {message.attachments.map((attachment, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="relative group"
+              >
+                {attachment.preview ? (
+                  <img
+                    src={attachment.preview}
+                    alt={attachment.name}
+                    className="max-w-[200px] max-h-[150px] rounded-lg border border-border object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => {
+                      // Open image in new tab
+                      const win = window.open();
+                      if (win) {
+                        win.document.write(`<img src="${attachment.preview}" style="max-width: 100%; height: auto;" />`);
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+                    <FileText className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm truncate max-w-[150px]">{attachment.name}</span>
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        )}
 
         <div className="prose-knowledge">
           <ReactMarkdown
