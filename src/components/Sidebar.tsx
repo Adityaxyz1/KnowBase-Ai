@@ -87,6 +87,7 @@ interface SidebarProps {
   onAssignConversations: (spaceId: string, conversationIds: string[]) => void;
   onAddConversationToSpace: (conversationId: string, spaceId: string | undefined) => void;
   onExportConversation: (conversationId: string, format: 'markdown' | 'pdf') => void;
+  onClearAllChats: () => void;
   onOpenSettings: () => void;
   className?: string;
 }
@@ -135,6 +136,7 @@ export function Sidebar({
   onAssignConversations,
   onAddConversationToSpace,
   onExportConversation,
+  onClearAllChats,
   onOpenSettings,
   className
 }: SidebarProps) {
@@ -152,6 +154,7 @@ export function Sidebar({
   const [spaceToDelete, setSpaceToDelete] = useState<KnowledgeSpace | null>(null);
   const [draggedConversation, setDraggedConversation] = useState<string | null>(null);
   const [dragOverSpace, setDragOverSpace] = useState<string | null>(null);
+  const [clearAllDialogOpen, setClearAllDialogOpen] = useState(false);
 
   const handleAddToSpaceClick = (conv: Conversation, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -468,9 +471,22 @@ export function Sidebar({
 
         {/* Recent */}
         <div className="p-3 border-t border-sidebar-border">
-          <div className="flex items-center gap-2 px-2 py-1.5 text-xs uppercase tracking-wider text-muted-foreground font-medium">
-            <Clock className="w-3 h-3" />
-            Recent
+          <div className="flex items-center justify-between px-2 py-1.5">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground font-medium">
+              <Clock className="w-3 h-3" />
+              Recent
+            </div>
+            {recentConversations.length > 0 && (
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setClearAllDialogOpen(true)}
+                className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                title="Clear all chats"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </motion.button>
+            )}
           </div>
           <motion.div 
             initial={{ opacity: 0 }}
@@ -602,6 +618,47 @@ export function Sidebar({
                 >
                   <Trash2 className="w-4 h-4" />
                   Confirm Delete
+                </AlertDialogAction>
+              </motion.div>
+            </AlertDialogFooter>
+          </motion.div>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Clear All Chats Confirmation Dialog */}
+      <AlertDialog open={clearAllDialogOpen} onOpenChange={setClearAllDialogOpen}>
+        <AlertDialogContent>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.2 }}
+          >
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-destructive" />
+                Clear all chats?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete all your conversations. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="gap-2 sm:gap-0">
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <AlertDialogCancel className="flex items-center gap-2">
+                  <X className="w-4 h-4" />
+                  Cancel
+                </AlertDialogCancel>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <AlertDialogAction 
+                  onClick={() => {
+                    onClearAllChats();
+                    setClearAllDialogOpen(false);
+                  }} 
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Clear All
                 </AlertDialogAction>
               </motion.div>
             </AlertDialogFooter>
