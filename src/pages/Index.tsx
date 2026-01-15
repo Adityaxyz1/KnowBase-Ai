@@ -468,6 +468,7 @@ export default function Index() {
             onAssignConversations={handleAssignConversations}
             onAddConversationToSpace={handleAddConversationToSpace}
             onExportConversation={handleExportConversation}
+            onClearAllChats={handleResetAllChats}
             onOpenSettings={() => setSettingsOpen(true)}
           />
         )}
