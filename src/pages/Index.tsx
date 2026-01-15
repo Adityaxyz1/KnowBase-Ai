@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { KnowledgeOrb } from '@/components/KnowledgeOrb';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { streamChat, analyzeConfidence, type ChatMessage, type FileAttachment } from '@/lib/chat';
+import { exportToMarkdown, exportToPDF, downloadMarkdown } from '@/lib/exportConversation';
 import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { cn } from '@/lib/utils';
@@ -379,6 +380,49 @@ export default function Index() {
     });
   };
 
+  const handleExportConversation = (conversationId: string, format: 'markdown' | 'pdf') => {
+    const conversation = conversations.find(c => c.id === conversationId);
+    if (!conversation || conversation.messages.length === 0) {
+      toast({
+        title: 'Cannot export',
+        description: 'This conversation has no messages to export.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      if (format === 'markdown') {
+        const markdown = exportToMarkdown({
+          title: conversation.title,
+          messages: conversation.messages,
+          format: 'markdown',
+        });
+        downloadMarkdown(markdown, conversation.title);
+        toast({
+          title: 'Exported successfully',
+          description: `Conversation saved as Markdown file.`,
+        });
+      } else {
+        exportToPDF({
+          title: conversation.title,
+          messages: conversation.messages,
+          format: 'pdf',
+        });
+        toast({
+          title: 'Exported successfully',
+          description: `Conversation saved as PDF file.`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Export failed',
+        description: 'An error occurred while exporting the conversation.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Update conversation title after first message
   useEffect(() => {
     if (activeConversationId && messages.length === 1 && messages[0].role === 'user') {
@@ -423,6 +467,7 @@ export default function Index() {
             onDeleteSpace={handleDeleteSpace}
             onAssignConversations={handleAssignConversations}
             onAddConversationToSpace={handleAddConversationToSpace}
+            onExportConversation={handleExportConversation}
             onOpenSettings={() => setSettingsOpen(true)}
           />
         )}

@@ -35,6 +35,8 @@ interface FileAttachment {
   name: string;
   type: string;
   base64: string;
+  pdfText?: string;
+  pdfPageCount?: number;
 }
 
 serve(async (req) => {
@@ -57,13 +59,16 @@ serve(async (req) => {
     const processedMessages = messages.map((msg: any, index: number) => {
       // Only process the last user message for file attachments
       if (msg.role === 'user' && index === messages.length - 1 && files && files.length > 0) {
-        const content: any[] = [
-          { type: 'text', text: msg.content }
-        ];
+        const content: any[] = [];
+        let textContent = msg.content;
         
-        // Add image attachments
+        // Process files
         for (const file of files as FileAttachment[]) {
-          if (file.type.startsWith('image/')) {
+          if (file.pdfText) {
+            // Handle PDF files - add extracted text as context
+            textContent += `\n\n[PDF Document: ${file.name} (${file.pdfPageCount} pages)]\n${file.pdfText}`;
+          } else if (file.type.startsWith('image/')) {
+            // Add image to content array
             content.push({
               type: 'image_url',
               image_url: {
@@ -71,10 +76,13 @@ serve(async (req) => {
               }
             });
           } else {
-            // For non-image files, add as text context
-            content[0].text += `\n\n[Attached file: ${file.name}]`;
+            // For other non-image files, add as text context
+            textContent += `\n\n[Attached file: ${file.name}]`;
           }
         }
+        
+        // Add text content first
+        content.unshift({ type: 'text', text: textContent });
         
         return { ...msg, content };
       }
