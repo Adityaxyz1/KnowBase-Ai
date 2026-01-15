@@ -14,7 +14,10 @@ import {
   FolderPlus,
   X,
   GripVertical,
-  Filter
+  Filter,
+  Download,
+  FileText,
+  FileDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,11 +36,24 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { AddSpaceDialog } from '@/components/AddSpaceDialog';
 import { EditSpaceDialog } from '@/components/EditSpaceDialog';
 import { AddToSpacePopup } from '@/components/AddToSpacePopup';
 import { cn } from '@/lib/utils';
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  attachments?: Array<{
+    name: string;
+    type: string;
+    preview?: string;
+  }>;
+}
 
 interface Conversation {
   id: string;
@@ -46,6 +62,7 @@ interface Conversation {
   timestamp: Date;
   starred?: boolean;
   spaceId?: string;
+  messages: Message[];
 }
 
 interface KnowledgeSpace {
@@ -69,6 +86,7 @@ interface SidebarProps {
   onDeleteSpace: (id: string) => void;
   onAssignConversations: (spaceId: string, conversationIds: string[]) => void;
   onAddConversationToSpace: (conversationId: string, spaceId: string | undefined) => void;
+  onExportConversation: (conversationId: string, format: 'markdown' | 'pdf') => void;
   onOpenSettings: () => void;
   className?: string;
 }
@@ -116,6 +134,7 @@ export function Sidebar({
   onDeleteSpace,
   onAssignConversations,
   onAddConversationToSpace,
+  onExportConversation,
   onOpenSettings,
   className
 }: SidebarProps) {
@@ -436,6 +455,7 @@ export function Sidebar({
                   onClick={() => onSelectConversation(conv.id)}
                   onDelete={(e) => handleDeleteClick(conv.id, e)}
                   onAddToSpace={(e) => handleAddToSpaceClick(conv, e)}
+                  onExport={(format) => onExportConversation(conv.id, format)}
                   index={index}
                   hasSpace={!!conv.spaceId}
                   onDragStart={() => handleDragStart(conv.id)}
@@ -465,6 +485,7 @@ export function Sidebar({
                 onClick={() => onSelectConversation(conv.id)}
                 onDelete={(e) => handleDeleteClick(conv.id, e)}
                 onAddToSpace={(e) => handleAddToSpaceClick(conv, e)}
+                onExport={(format) => onExportConversation(conv.id, format)}
                 index={index}
                 hasSpace={!!conv.spaceId}
                 onDragStart={() => handleDragStart(conv.id)}
@@ -597,6 +618,7 @@ interface ConversationItemProps {
   onClick: () => void;
   onDelete: (e: React.MouseEvent) => void;
   onAddToSpace: (e: React.MouseEvent) => void;
+  onExport: (format: 'markdown' | 'pdf') => void;
   index: number;
   hasSpace?: boolean;
   onDragStart?: () => void;
@@ -608,7 +630,8 @@ function ConversationItem({
   isActive, 
   onClick, 
   onDelete, 
-  onAddToSpace, 
+  onAddToSpace,
+  onExport,
   index, 
   hasSpace,
   onDragStart,
@@ -658,6 +681,7 @@ function ConversationItem({
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.15 }}
               className="flex items-center gap-1"
+              onClick={(e) => e.stopPropagation()}
             >
               <motion.button
                 whileHover={{ scale: 1.2 }}
@@ -671,6 +695,28 @@ function ConversationItem({
               >
                 <FolderPlus className="w-3.5 h-3.5" />
               </motion.button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <motion.button
+                    whileHover={{ scale: 1.2 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="p-1 hover:text-primary transition-colors"
+                    title="Export conversation"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </motion.button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem onClick={() => onExport('markdown')}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    Markdown
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onExport('pdf')}>
+                    <FileDown className="w-4 h-4 mr-2" />
+                    PDF
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <motion.button
                 whileHover={{ scale: 1.2 }}
                 whileTap={{ scale: 0.9 }}

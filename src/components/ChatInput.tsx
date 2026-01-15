@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Paperclip, Mic, X, FileText, Image, Loader2 } from 'lucide-react';
+import { Send, Paperclip, Mic, MicOff, X, FileText, Image, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { PromptTemplates, StyleModifiers, promptTemplates, styleModifiers, type PromptTemplate } from '@/components/PromptTemplates';
 import { cn } from '@/lib/utils';
 import { fileToBase64, type FileAttachment } from '@/lib/chat';
+import { parsePDF, isPDFFile } from '@/lib/pdfParser';
+import { useVoiceInput } from '@/hooks/useVoiceInput';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatInputProps {
   onSend: (message: string, files?: FileAttachment[]) => void;
@@ -27,6 +30,22 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({ onSend, 
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  // Voice input hook
+  const { isListening, toggleListening } = useVoiceInput({
+    onTranscript: (text) => {
+      setMessage(prev => prev + (prev ? ' ' : '') + text);
+      setShowTemplates(false);
+    },
+    onError: (error) => {
+      toast({
+        title: 'Voice Input Error',
+        description: error,
+        variant: 'destructive',
+      });
+    },
+  });
 
   useImperativeHandle(ref, () => ({
     focus: () => textareaRef.current?.focus(),
@@ -94,16 +113,46 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({ onSend, 
       try {
         const newAttachments: FileAttachment[] = [];
         for (const file of newFiles) {
-          const base64 = await fileToBase64(file);
-          newAttachments.push({
-            name: file.name,
-            type: file.type,
-            base64
-          });
+          // Handle PDF files specially
+          if (isPDFFile(file)) {
+            try {
+              const pdfResult = await parsePDF(file);
+              newAttachments.push({
+                name: file.name,
+                type: 'application/pdf',
+                base64: '', // PDFs are processed as text
+                pdfText: pdfResult.text,
+                pdfPageCount: pdfResult.pageCount,
+              });
+              toast({
+                title: 'PDF Processed',
+                description: `Extracted ${pdfResult.pageCount} pages from ${file.name}`,
+              });
+            } catch (error) {
+              toast({
+                title: 'PDF Error',
+                description: error instanceof Error ? error.message : 'Failed to parse PDF',
+                variant: 'destructive',
+              });
+            }
+          } else {
+            // Handle images and other files
+            const base64 = await fileToBase64(file);
+            newAttachments.push({
+              name: file.name,
+              type: file.type,
+              base64
+            });
+          }
         }
         setFileAttachments(prev => [...prev, ...newAttachments]);
       } catch (error) {
         console.error('Error processing files:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to process one or more files',
+          variant: 'destructive',
+        });
       } finally {
         setIsProcessingFiles(false);
       }
@@ -241,9 +290,19 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({ onSend, 
           <Button
             variant="ghost"
             size="icon-sm"
-            className="text-muted-foreground hover:text-foreground"
+            onClick={toggleListening}
+            className={cn(
+              "text-muted-foreground hover:text-foreground transition-colors",
+              isListening && "text-destructive bg-destructive/10 animate-pulse"
+            )}
+            disabled={disabled}
+            title={isListening ? "Stop recording" : "Start voice input"}
           >
-            <Mic className="w-4 h-4" />
+            {isListening ? (
+              <MicOff className="w-4 h-4" />
+            ) : (
+              <Mic className="w-4 h-4" />
+            )}
           </Button>
           <Button
             variant={canSend ? 'default' : 'ghost'}

@@ -15,6 +15,8 @@ export interface FileAttachment {
   name: string;
   type: string;
   base64: string;
+  pdfText?: string;
+  pdfPageCount?: number;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
