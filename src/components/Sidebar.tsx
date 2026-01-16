@@ -343,7 +343,7 @@ export function Sidebar({
                   }} whileHover={{
                     scale: 1.1
                   }} onClick={e => handleDeleteSpaceClick(space, e)} className="p-1 text-destructive hover:text-destructive/80 transition-colors">
-                          <X className="w-3.5 h-3.5 text-white" />
+                          <X className="w-3.5 h-3.5 bg-[#fa0505] text-[#fdfcfc]" />
                         </motion.button>
                       </div>
                     </motion.button>
