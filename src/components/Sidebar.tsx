@@ -336,7 +336,7 @@ export function Sidebar({
                   }} whileHover={{
                     scale: 1.1
                   }} onClick={e => handleEditSpaceClick(space, e)} className="p-1 hover:text-primary transition-colors">
-                          <Pencil className="w-3 h-3" />
+                          <Pencil className="w-3 h-3 bg-[#8a0a0a] text-black" />
                         </motion.button>
                         <motion.button initial={{
                     opacity: 0
