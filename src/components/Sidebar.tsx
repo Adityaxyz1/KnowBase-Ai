@@ -89,6 +89,7 @@ interface SidebarProps {
   onExportConversation: (conversationId: string, format: 'markdown' | 'pdf') => void;
   onClearAllChats: () => void;
   onOpenSettings: () => void;
+  searchInputRef?: React.RefObject<HTMLInputElement>;
   className?: string;
 }
 
@@ -138,6 +139,7 @@ export function Sidebar({
   onExportConversation,
   onClearAllChats,
   onOpenSettings,
+  searchInputRef,
   className
 }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -281,9 +283,10 @@ export function Sidebar({
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
+              ref={searchInputRef}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search chats..."
+              placeholder="Search chats... (Ctrl+K)"
               className="pl-9 h-9 bg-sidebar-accent border-transparent"
             />
           </div>
@@ -415,9 +418,9 @@ export function Sidebar({
                           initial={{ opacity: 0 }}
                           whileHover={{ scale: 1.1 }}
                           onClick={(e) => handleDeleteSpaceClick(space, e)}
-                          className="p-1 hover:text-destructive transition-colors"
+                          className="p-1 text-destructive hover:text-destructive/80 transition-colors"
                         >
-                          <X className="w-3 h-3" />
+                          <X className="w-3.5 h-3.5" />
                         </motion.button>
                       </div>
                     </motion.button>
