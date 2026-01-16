@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PanelRightOpen, PanelRightClose, Menu, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -56,6 +56,7 @@ export default function Index() {
   const [keyPoints, setKeyPoints] = useState<{ id: string; text: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputHandle>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const scrollToBottom = () => {
@@ -65,6 +66,51 @@ export default function Index() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + N: New chat
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        handleNewChat();
+        toast({
+          title: 'New chat created',
+          description: 'Press Ctrl+K to search',
+        });
+      }
+      
+      // Ctrl/Cmd + K: Focus search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        if (!sidebarOpen) {
+          setSidebarOpen(true);
+        }
+        // Focus search after sidebar opens
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+        }, 100);
+      }
+      
+      // Ctrl/Cmd + B: Toggle sidebar
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault();
+        setSidebarOpen(prev => !prev);
+      }
+      
+      // Escape: Close panels
+      if (e.key === 'Escape') {
+        if (settingsOpen) {
+          setSettingsOpen(false);
+        } else if (contextOpen) {
+          setContextOpen(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [sidebarOpen, settingsOpen, contextOpen]);
 
   const handleSend = async (content: string, files?: FileAttachment[]) => {
     // Auto-create conversation if none exists
@@ -470,6 +516,7 @@ export default function Index() {
             onExportConversation={handleExportConversation}
             onClearAllChats={handleResetAllChats}
             onOpenSettings={() => setSettingsOpen(true)}
+            searchInputRef={searchInputRef}
           />
         )}
       </AnimatePresence>
