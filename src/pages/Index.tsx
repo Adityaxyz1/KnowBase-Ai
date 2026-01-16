@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PanelRightOpen, PanelRightClose, Menu, Sparkles } from 'lucide-react';
+import { PanelRightOpen, PanelRightClose, Menu, Sparkles, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sidebar } from '@/components/Sidebar';
 import { ChatInput, type ChatInputHandle } from '@/components/ChatInput';
@@ -13,6 +14,7 @@ import { streamChat, analyzeConfidence, type ChatMessage, type FileAttachment } 
 import { exportToMarkdown, exportToPDF, downloadMarkdown } from '@/lib/exportConversation';
 import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
 interface Conversation {
@@ -39,6 +41,9 @@ const defaultSpaces: KnowledgeSpace[] = [
 ];
 
 export default function Index() {
+  const { user, loading, signOut } = useAuth();
+  const navigate = useNavigate();
+  
   // Persisted state
   const [conversations, setConversations] = useLocalStorage<Conversation[]>('knowbase-conversations', []);
   const [knowledgeSpaces, setKnowledgeSpaces] = useLocalStorage<KnowledgeSpace[]>('knowbase-spaces', defaultSpaces);
@@ -58,6 +63,30 @@ export default function Index() {
   const chatInputRef = useRef<ChatInputHandle>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
+
+  const handleSignOut = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast({
+        title: 'Error signing out',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Signed out',
+        description: 'You have been signed out successfully.',
+      });
+      navigate('/auth');
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -483,6 +512,25 @@ export default function Index() {
 
   const hasMessages = messages.length > 0;
 
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+        >
+          <Sparkles className="w-8 h-8 text-primary" />
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="h-screen flex bg-background overflow-hidden transition-colors duration-300">
       {/* Settings Panel */}
@@ -557,6 +605,14 @@ export default function Index() {
                 )}
               </Button>
             )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSignOut}
+              title="Sign out"
+            >
+              <LogOut className="w-5 h-5" />
+            </Button>
           </div>
         </header>
 
