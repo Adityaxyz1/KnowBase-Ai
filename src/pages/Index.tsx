@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PanelRightOpen, PanelRightClose, Menu, Sparkles, LogOut } from 'lucide-react';
+import { PanelRightOpen, PanelRightClose, Menu, Sparkles, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sidebar } from '@/components/Sidebar';
 import { ChatInput, type ChatInputHandle } from '@/components/ChatInput';
@@ -10,11 +10,15 @@ import { ContextPanel } from '@/components/ContextPanel';
 import { EmptyState } from '@/components/EmptyState';
 import { KnowledgeOrb } from '@/components/KnowledgeOrb';
 import { SettingsPanel } from '@/components/SettingsPanel';
+import { ProfileDialog } from '@/components/ProfileDialog';
 import { streamChat, analyzeConfidence, type ChatMessage, type FileAttachment } from '@/lib/chat';
 import { exportToMarkdown, exportToPDF, downloadMarkdown } from '@/lib/exportConversation';
 import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useAuth } from '@/hooks/useAuth';
+import { useConversations } from '@/hooks/useConversations';
+import { useProfile } from '@/hooks/useProfile';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
 interface Conversation {
@@ -34,19 +38,27 @@ interface KnowledgeSpace {
   conversationCount: number;
 }
 
-const defaultSpaces: KnowledgeSpace[] = [
-  { id: '1', name: 'Research', color: '#00d4ff', conversationCount: 0 },
-  { id: '2', name: 'Work Projects', color: '#ff6b6b', conversationCount: 0 },
-  { id: '3', name: 'Learning', color: '#ffd93d', conversationCount: 0 },
-];
-
 export default function Index() {
   const { user, loading, signOut } = useAuth();
+  const { profile } = useProfile();
   const navigate = useNavigate();
-  
-  // Persisted state
-  const [conversations, setConversations] = useLocalStorage<Conversation[]>('knowbase-conversations', []);
-  const [knowledgeSpaces, setKnowledgeSpaces] = useLocalStorage<KnowledgeSpace[]>('knowbase-spaces', defaultSpaces);
+  const {
+    conversations: dbConversations,
+    knowledgeSpaces: dbSpaces,
+    loading: dbLoading,
+    createConversation,
+    updateConversation,
+    deleteConversation,
+    clearAllConversations,
+    fetchMessages,
+    addMessage,
+    updateMessage,
+    createSpace,
+    updateSpace,
+    deleteSpace,
+  } = useConversations();
+
+  // Theme preference
   const [isDarkMode, setIsDarkMode] = useLocalStorage<boolean>('knowbase-theme-dark', true);
   
   // Session state
@@ -57,12 +69,32 @@ export default function Index() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [contextOpen, setContextOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [reasoning, setReasoning] = useState<{ id: string; title: string; description: string }[]>([]);
   const [keyPoints, setKeyPoints] = useState<{ id: string; text: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputHandle>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Transform DB conversations to UI format
+  const conversations: Conversation[] = dbConversations.map(c => ({
+    id: c.id,
+    title: c.title,
+    preview: c.preview || '',
+    timestamp: new Date(c.updated_at),
+    starred: c.starred,
+    spaceId: c.space_id ?? undefined,
+    messages: []
+  }));
+
+  // Transform DB spaces to UI format with counts
+  const knowledgeSpaces: KnowledgeSpace[] = dbSpaces.map(s => ({
+    id: s.id,
+    name: s.name,
+    color: s.color,
+    conversationCount: dbConversations.filter(c => c.space_id === s.id).length
+  }));
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -99,7 +131,6 @@ export default function Index() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl/Cmd + N: New chat
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
         e.preventDefault();
         handleNewChat();
@@ -109,28 +140,26 @@ export default function Index() {
         });
       }
       
-      // Ctrl/Cmd + K: Focus search
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
         if (!sidebarOpen) {
           setSidebarOpen(true);
         }
-        // Focus search after sidebar opens
         setTimeout(() => {
           searchInputRef.current?.focus();
         }, 100);
       }
       
-      // Ctrl/Cmd + B: Toggle sidebar
       if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
         e.preventDefault();
         setSidebarOpen(prev => !prev);
       }
       
-      // Escape: Close panels
       if (e.key === 'Escape') {
         if (settingsOpen) {
           setSettingsOpen(false);
+        } else if (profileOpen) {
+          setProfileOpen(false);
         } else if (contextOpen) {
           setContextOpen(false);
         }
@@ -139,27 +168,29 @@ export default function Index() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sidebarOpen, settingsOpen, contextOpen]);
+  }, [sidebarOpen, settingsOpen, contextOpen, profileOpen]);
 
   const handleSend = async (content: string, files?: FileAttachment[]) => {
-    // Auto-create conversation if none exists
     let currentConvId = activeConversationId;
+    
+    // Auto-create conversation if none exists
     if (!currentConvId) {
-      const newId = Date.now().toString();
       const title = content.slice(0, 40) + (content.length > 40 ? '...' : '');
-      const newConversation: Conversation = {
-        id: newId,
-        title,
-        preview: content.slice(0, 50) + '...',
-        timestamp: new Date(),
-        messages: [],
-      };
-      setConversations(prev => [newConversation, ...prev]);
-      setActiveConversationId(newId);
-      currentConvId = newId;
+      const { data } = await createConversation(title, content.slice(0, 50) + '...');
+      if (data) {
+        currentConvId = data.id;
+        setActiveConversationId(data.id);
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to create conversation',
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
-    // Create user message with optional file attachments
+    // Create user message
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -176,6 +207,13 @@ export default function Index() {
     setIsThinking(true);
     setContextOpen(true);
 
+    // Save user message to DB
+    await addMessage(currentConvId, {
+      role: 'user',
+      content,
+      attachments: userMessage.attachments
+    });
+
     // Set reasoning steps
     const reasoningSteps = files && files.length > 0
       ? [
@@ -190,11 +228,9 @@ export default function Index() {
         ];
     setReasoning(reasoningSteps);
 
-    // Create assistant message placeholder
     const assistantId = (Date.now() + 1).toString();
     let assistantContent = '';
 
-    // Prepare messages for API
     const chatMessages: ChatMessage[] = [...messages, userMessage].map(m => ({
       role: m.role,
       content: m.content,
@@ -223,10 +259,9 @@ export default function Index() {
           ];
         });
       },
-      onDone: () => {
+      onDone: async () => {
         setIsThinking(false);
         
-        // Analyze confidence
         const confidence = analyzeConfidence(assistantContent);
         setMessages(prev =>
           prev.map(m =>
@@ -234,7 +269,20 @@ export default function Index() {
           )
         );
 
-        // Extract key points from the response
+        // Save assistant message to DB
+        if (currentConvId) {
+          await addMessage(currentConvId, {
+            role: 'assistant',
+            content: assistantContent,
+            confidence
+          });
+          
+          // Update conversation preview
+          await updateConversation(currentConvId, {
+            preview: content.slice(0, 50) + '...'
+          });
+        }
+
         const sentences = assistantContent.split(/[.!?]+/).filter(s => s.trim().length > 20);
         const points = sentences.slice(0, 4).map((text, i) => ({
           id: String(i),
@@ -253,59 +301,23 @@ export default function Index() {
     });
   };
 
-  const handleNewChat = () => {
-    // Save current conversation if it has messages
-    if (activeConversationId && messages.length > 0) {
-      setConversations(prev =>
-        prev.map(c =>
-          c.id === activeConversationId
-            ? { ...c, messages, preview: messages[0]?.content.slice(0, 50) + '...' }
-            : c
-        )
-      );
-    }
-
-    // Create new conversation
-    const newId = Date.now().toString();
-    const newConversation: Conversation = {
-      id: newId,
-      title: 'New Chat',
-      preview: 'Start a new conversation...',
-      timestamp: new Date(),
-      messages: [],
-    };
-
-    setConversations(prev => [newConversation, ...prev]);
-    setActiveConversationId(newId);
+  const handleNewChat = async () => {
+    setActiveConversationId(undefined);
     setMessages([]);
     setContextOpen(false);
     setReasoning([]);
     setKeyPoints([]);
   };
 
-  const handleSelectConversation = (id: string) => {
-    // Save current conversation
-    if (activeConversationId && messages.length > 0) {
-      setConversations(prev =>
-        prev.map(c =>
-          c.id === activeConversationId
-            ? { ...c, messages, preview: messages[0]?.content.slice(0, 50) + '...' }
-            : c
-        )
-      );
-    }
-
-    // Load selected conversation
-    const conversation = conversations.find(c => c.id === id);
-    if (conversation) {
-      setActiveConversationId(id);
-      setMessages(conversation.messages);
-      setContextOpen(conversation.messages.length > 0);
-    }
+  const handleSelectConversation = async (id: string) => {
+    setActiveConversationId(id);
+    const msgs = await fetchMessages(id);
+    setMessages(msgs);
+    setContextOpen(msgs.length > 0);
   };
 
-  const handleDeleteConversation = (id: string) => {
-    setConversations(prev => prev.filter(c => c.id !== id));
+  const handleDeleteConversation = async (id: string) => {
+    await deleteConversation(id);
     if (activeConversationId === id) {
       setActiveConversationId(undefined);
       setMessages([]);
@@ -319,38 +331,34 @@ export default function Index() {
     setActiveSpaceId(activeSpaceId === id ? undefined : id);
   };
 
-  const handleAddSpace = (name: string, color: string) => {
-    const newSpace: KnowledgeSpace = {
-      id: Date.now().toString(),
-      name,
-      color,
-      conversationCount: 0,
-    };
-    setKnowledgeSpaces(prev => [...prev, newSpace]);
-    toast({
-      title: 'Space created',
-      description: `"${name}" has been added to your knowledge spaces.`,
-    });
+  const handleAddSpace = async (name: string, color: string) => {
+    const { error } = await createSpace(name, color);
+    if (!error) {
+      toast({
+        title: 'Space created',
+        description: `"${name}" has been added to your knowledge spaces.`,
+      });
+    }
   };
 
-  const handleUpdateSpace = (id: string, name: string, color: string) => {
-    setKnowledgeSpaces(prev =>
-      prev.map(space =>
-        space.id === id ? { ...space, name, color } : space
-      )
-    );
-    toast({
-      title: 'Space updated',
-      description: `"${name}" has been updated.`,
-    });
+  const handleUpdateSpace = async (id: string, name: string, color: string) => {
+    const { error } = await updateSpace(id, { name, color });
+    if (!error) {
+      toast({
+        title: 'Space updated',
+        description: `"${name}" has been updated.`,
+      });
+    }
   };
 
-  const handleDeleteSpace = (id: string) => {
-    // Unassign all conversations from this space
-    setConversations(prev =>
-      prev.map(c => c.spaceId === id ? { ...c, spaceId: undefined } : c)
-    );
-    setKnowledgeSpaces(prev => prev.filter(space => space.id !== id));
+  const handleDeleteSpace = async (id: string) => {
+    // First update all conversations in this space to have no space
+    const convosInSpace = dbConversations.filter(c => c.space_id === id);
+    for (const conv of convosInSpace) {
+      await updateConversation(conv.id, { space_id: null } as any);
+    }
+    
+    await deleteSpace(id);
     if (activeSpaceId === id) {
       setActiveSpaceId(undefined);
     }
@@ -360,40 +368,23 @@ export default function Index() {
     });
   };
 
-  const handleAssignConversations = (spaceId: string, conversationIds: string[]) => {
-    setConversations(prev =>
-      prev.map(c => ({
-        ...c,
-        spaceId: conversationIds.includes(c.id) ? spaceId : (c.spaceId === spaceId ? undefined : c.spaceId)
-      }))
-    );
-    // Update conversation count
-    setKnowledgeSpaces(prev =>
-      prev.map(space => ({
-        ...space,
-        conversationCount: space.id === spaceId ? conversationIds.length : 
-          conversations.filter(c => c.spaceId === space.id && !conversationIds.includes(c.id)).length
-      }))
-    );
+  const handleAssignConversations = async (spaceId: string, conversationIds: string[]) => {
+    // Update all conversations: assign to space or remove
+    for (const conv of dbConversations) {
+      const shouldBeInSpace = conversationIds.includes(conv.id);
+      const isInSpace = conv.space_id === spaceId;
+      
+      if (shouldBeInSpace && !isInSpace) {
+        await updateConversation(conv.id, { space_id: spaceId } as any);
+      } else if (!shouldBeInSpace && isInSpace) {
+        await updateConversation(conv.id, { space_id: null } as any);
+      }
+    }
   };
 
-  const handleAddConversationToSpace = (conversationId: string, spaceId: string | undefined) => {
-    const oldSpaceId = conversations.find(c => c.id === conversationId)?.spaceId;
+  const handleAddConversationToSpace = async (conversationId: string, spaceId: string | undefined) => {
+    await updateConversation(conversationId, { space_id: spaceId ?? null } as any);
     
-    setConversations(prev =>
-      prev.map(c => c.id === conversationId ? { ...c, spaceId } : c)
-    );
-    
-    // Update conversation counts
-    setKnowledgeSpaces(prev =>
-      prev.map(space => {
-        let count = space.conversationCount;
-        if (space.id === oldSpaceId) count--;
-        if (space.id === spaceId) count++;
-        return { ...space, conversationCount: Math.max(0, count) };
-      })
-    );
-
     const spaceName = knowledgeSpaces.find(s => s.id === spaceId)?.name;
     toast({
       title: spaceId ? 'Added to space' : 'Removed from space',
@@ -407,7 +398,6 @@ export default function Index() {
     setIsDarkMode(prev => !prev);
   };
 
-  // Apply theme to document
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -416,9 +406,8 @@ export default function Index() {
     }
   }, [isDarkMode]);
 
-  const handleClearAllData = () => {
-    setConversations([]);
-    setKnowledgeSpaces(defaultSpaces);
+  const handleClearAllData = async () => {
+    await clearAllConversations();
     setIsDarkMode(true);
     setActiveConversationId(undefined);
     setActiveSpaceId(undefined);
@@ -429,12 +418,12 @@ export default function Index() {
     setSettingsOpen(false);
     toast({
       title: 'All data cleared',
-      description: 'Your conversations and settings have been reset.',
+      description: 'Your conversations have been reset.',
     });
   };
 
-  const handleResetAllChats = () => {
-    setConversations([]);
+  const handleResetAllChats = async () => {
+    await clearAllConversations();
     setActiveConversationId(undefined);
     setMessages([]);
     setContextOpen(false);
@@ -455,9 +444,12 @@ export default function Index() {
     });
   };
 
-  const handleExportConversation = (conversationId: string, format: 'markdown' | 'pdf') => {
-    const conversation = conversations.find(c => c.id === conversationId);
-    if (!conversation || conversation.messages.length === 0) {
+  const handleExportConversation = async (conversationId: string, format: 'markdown' | 'pdf') => {
+    const conversation = dbConversations.find(c => c.id === conversationId);
+    if (!conversation) return;
+
+    const msgs = await fetchMessages(conversationId);
+    if (msgs.length === 0) {
       toast({
         title: 'Cannot export',
         description: 'This conversation has no messages to export.',
@@ -470,7 +462,7 @@ export default function Index() {
       if (format === 'markdown') {
         const markdown = exportToMarkdown({
           title: conversation.title,
-          messages: conversation.messages,
+          messages: msgs,
           format: 'markdown',
         });
         downloadMarkdown(markdown, conversation.title);
@@ -481,7 +473,7 @@ export default function Index() {
       } else {
         exportToPDF({
           title: conversation.title,
-          messages: conversation.messages,
+          messages: msgs,
           format: 'pdf',
         });
         toast({
@@ -502,18 +494,14 @@ export default function Index() {
   useEffect(() => {
     if (activeConversationId && messages.length === 1 && messages[0].role === 'user') {
       const title = messages[0].content.slice(0, 40) + (messages[0].content.length > 40 ? '...' : '');
-      setConversations(prev =>
-        prev.map(c =>
-          c.id === activeConversationId ? { ...c, title } : c
-        )
-      );
+      updateConversation(activeConversationId, { title });
     }
   }, [messages, activeConversationId]);
 
   const hasMessages = messages.length > 0;
 
   // Show loading state while checking auth
-  if (loading) {
+  if (loading || dbLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
         <motion.div
@@ -526,10 +514,17 @@ export default function Index() {
     );
   }
 
-  // Don't render if not authenticated (will redirect)
+  // Don't render if not authenticated
   if (!user) {
     return null;
   }
+
+  const getInitials = () => {
+    if (profile?.display_name) {
+      return profile.display_name.slice(0, 2).toUpperCase();
+    }
+    return user.email?.slice(0, 2).toUpperCase() || 'U';
+  };
 
   return (
     <div className="h-screen flex bg-background overflow-hidden transition-colors duration-300">
@@ -542,6 +537,12 @@ export default function Index() {
         onClearAllData={handleClearAllData}
         onResetAllChats={handleResetAllChats}
         onResetBot={handleResetBot}
+      />
+
+      {/* Profile Dialog */}
+      <ProfileDialog
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
       />
 
       {/* Sidebar */}
@@ -605,6 +606,19 @@ export default function Index() {
                 )}
               </Button>
             )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setProfileOpen(true)}
+              title="Edit profile"
+            >
+              <Avatar className="w-7 h-7">
+                <AvatarImage src={profile?.avatar_url || undefined} />
+                <AvatarFallback className="text-xs bg-gradient-to-br from-primary to-accent text-primary-foreground">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
             <Button
               variant="ghost"
               size="icon"
