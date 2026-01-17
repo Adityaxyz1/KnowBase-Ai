@@ -1,11 +1,12 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Bot, Copy, Check, ThumbsUp, ThumbsDown, FileText, Image } from 'lucide-react';
+import { User, Bot, Copy, Check, ThumbsUp, ThumbsDown, FileText, Image, Volume2, VolumeX, GraduationCap } from 'lucide-react';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Button } from '@/components/ui/button';
 import { ConfidenceIndicator } from '@/components/ConfidenceIndicator';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { cn } from '@/lib/utils';
 
 export interface MessageAttachment {
@@ -28,10 +29,12 @@ export interface Message {
 interface MessageBubbleProps {
   message: Message;
   isLatest?: boolean;
+  onStartQuiz?: (topic: string) => void;
 }
 
-export function MessageBubble({ message, isLatest }: MessageBubbleProps) {
+export function MessageBubble({ message, isLatest, onStartQuiz }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
+  const { isSpeaking, toggle: toggleSpeech } = useTextToSpeech();
   const isUser = message.role === 'user';
 
   const handleCopy = async () => {
@@ -144,6 +147,19 @@ export function MessageBubble({ message, isLatest }: MessageBubbleProps) {
             <Button
               variant="ghost"
               size="icon-sm"
+              onClick={() => toggleSpeech(message.content)}
+              className="text-muted-foreground hover:text-foreground"
+              title={isSpeaking ? "Stop speaking" : "Read aloud"}
+            >
+              {isSpeaking ? (
+                <VolumeX className="w-3.5 h-3.5 text-primary" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={handleCopy}
               className="text-muted-foreground hover:text-foreground"
             >
@@ -153,6 +169,21 @@ export function MessageBubble({ message, isLatest }: MessageBubbleProps) {
                 <Copy className="w-3.5 h-3.5" />
               )}
             </Button>
+            {onStartQuiz && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => {
+                  // Extract topic from first sentence or use generic
+                  const topic = message.content.split('.')[0].slice(0, 100);
+                  onStartQuiz(topic);
+                }}
+                className="text-muted-foreground hover:text-foreground"
+                title="Start quiz on this topic"
+              >
+                <GraduationCap className="w-3.5 h-3.5" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon-sm"
@@ -216,9 +247,10 @@ export function ThinkingIndicator({ className }: ThinkingIndicatorProps) {
 interface MessageListProps {
   messages: Message[];
   isThinking?: boolean;
+  onStartQuiz?: (topic: string) => void;
 }
 
-export function MessageList({ messages, isThinking }: MessageListProps) {
+export function MessageList({ messages, isThinking, onStartQuiz }: MessageListProps) {
   return (
     <div className="flex flex-col">
       <AnimatePresence mode="popLayout">
@@ -227,6 +259,7 @@ export function MessageList({ messages, isThinking }: MessageListProps) {
             key={message.id} 
             message={message}
             isLatest={index === messages.length - 1}
+            onStartQuiz={onStartQuiz}
           />
         ))}
         {isThinking && <ThinkingIndicator key="thinking" />}

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PanelRightOpen, PanelRightClose, Menu, Sparkles, LogOut, Brain, Settings2 } from 'lucide-react';
+import { PanelRightOpen, PanelRightClose, Menu, Sparkles, LogOut, Brain, TrendingUp, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sidebar } from '@/components/Sidebar';
 import { ChatInput, type ChatInputHandle } from '@/components/ChatInput';
@@ -14,6 +14,8 @@ import { ProfileDialog } from '@/components/ProfileDialog';
 import { ImageGenerationButton } from '@/components/ImageGenerationButton';
 import { LearningPreferencesDialog } from '@/components/LearningPreferencesDialog';
 import { LearningInsights } from '@/components/LearningInsights';
+import { QuizGenerator } from '@/components/QuizGenerator';
+import { ProgressDashboard } from '@/components/ProgressDashboard';
 import { streamChat, analyzeConfidence, type ChatMessage, type FileAttachment } from '@/lib/chat';
 import { exportToMarkdown, exportToPDF, downloadMarkdown } from '@/lib/exportConversation';
 import { useToast } from '@/hooks/use-toast';
@@ -93,6 +95,9 @@ export default function Index() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [learningPrefsOpen, setLearningPrefsOpen] = useState(false);
+  const [progressDashboardOpen, setProgressDashboardOpen] = useState(false);
+  const [quizOpen, setQuizOpen] = useState(false);
+  const [quizTopic, setQuizTopic] = useState('');
   const [reasoning, setReasoning] = useState<{ id: string; title: string; description: string }[]>([]);
   const [keyPoints, setKeyPoints] = useState<{ id: string; text: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -576,6 +581,44 @@ export default function Index() {
         onSave={updatePreferences}
       />
 
+      {/* Progress Dashboard */}
+      <ProgressDashboard
+        open={progressDashboardOpen}
+        onOpenChange={setProgressDashboardOpen}
+        userId={user?.id}
+      />
+
+      {/* Quiz Modal */}
+      <AnimatePresence>
+        {quizOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+            >
+              <QuizGenerator
+                topic={quizTopic}
+                conversationId={activeConversationId}
+                userId={user?.id}
+                onComplete={(score, total) => {
+                  toast({
+                    title: 'Quiz completed!',
+                    description: `You scored ${score}/${total}. Your progress has been saved.`
+                  });
+                }}
+                onClose={() => setQuizOpen(false)}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
       <AnimatePresence>
         {sidebarOpen && (
@@ -651,6 +694,14 @@ export default function Index() {
             >
               <Brain className="w-5 h-5" />
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setProgressDashboardOpen(true)}
+              title="View learning progress"
+            >
+              <TrendingUp className="w-5 h-5" />
+            </Button>
             {hasMessages && (
               <Button
                 variant="ghost"
@@ -700,7 +751,14 @@ export default function Index() {
                     <KnowledgeOrb isActive={hasMessages} isThinking={isThinking} />
                   </div>
 
-                  <MessageList messages={messages} isThinking={isThinking} />
+                  <MessageList 
+                    messages={messages} 
+                    isThinking={isThinking}
+                    onStartQuiz={(topic) => {
+                      setQuizTopic(topic);
+                      setQuizOpen(true);
+                    }}
+                  />
                   <div ref={messagesEndRef} />
                 </div>
 
