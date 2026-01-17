@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PanelRightOpen, PanelRightClose, Menu, Sparkles, LogOut, User } from 'lucide-react';
+import { PanelRightOpen, PanelRightClose, Menu, Sparkles, LogOut, Brain, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sidebar } from '@/components/Sidebar';
 import { ChatInput, type ChatInputHandle } from '@/components/ChatInput';
@@ -11,6 +11,9 @@ import { EmptyState } from '@/components/EmptyState';
 import { KnowledgeOrb } from '@/components/KnowledgeOrb';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { ProfileDialog } from '@/components/ProfileDialog';
+import { ImageGenerationButton } from '@/components/ImageGenerationButton';
+import { LearningPreferencesDialog } from '@/components/LearningPreferencesDialog';
+import { LearningInsights } from '@/components/LearningInsights';
 import { streamChat, analyzeConfidence, type ChatMessage, type FileAttachment } from '@/lib/chat';
 import { exportToMarkdown, exportToPDF, downloadMarkdown } from '@/lib/exportConversation';
 import { useToast } from '@/hooks/use-toast';
@@ -18,6 +21,8 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useAuth } from '@/hooks/useAuth';
 import { useConversations } from '@/hooks/useConversations';
 import { useProfile } from '@/hooks/useProfile';
+import { useImageGeneration } from '@/hooks/useImageGeneration';
+import { useLearningAnalytics } from '@/hooks/useLearningAnalytics';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
@@ -58,6 +63,23 @@ export default function Index() {
     deleteSpace,
   } = useConversations();
 
+  // Image generation with daily limit
+  const { 
+    remainingGenerations, 
+    canGenerate, 
+    isGenerating, 
+    generateImage 
+  } = useImageGeneration(user?.id);
+
+  // Learning analytics and preferences
+  const {
+    analytics,
+    preferences,
+    updatePreferences,
+    getRecommendedDifficulty,
+    trackInteraction
+  } = useLearningAnalytics(user?.id);
+
   // Theme preference
   const [isDarkMode, setIsDarkMode] = useLocalStorage<boolean>('knowbase-theme-dark', true);
   
@@ -70,6 +92,7 @@ export default function Index() {
   const [contextOpen, setContextOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [learningPrefsOpen, setLearningPrefsOpen] = useState(false);
   const [reasoning, setReasoning] = useState<{ id: string; title: string; description: string }[]>([]);
   const [keyPoints, setKeyPoints] = useState<{ id: string; text: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -545,6 +568,14 @@ export default function Index() {
         onOpenChange={setProfileOpen}
       />
 
+      {/* Learning Preferences Dialog */}
+      <LearningPreferencesDialog
+        open={learningPrefsOpen}
+        onOpenChange={setLearningPrefsOpen}
+        preferences={preferences}
+        onSave={updatePreferences}
+      />
+
       {/* Sidebar */}
       <AnimatePresence>
         {sidebarOpen && (
@@ -593,6 +624,33 @@ export default function Index() {
           </div>
 
           <div className="flex items-center gap-2">
+            <ImageGenerationButton
+              remainingGenerations={remainingGenerations}
+              canGenerate={canGenerate}
+              isGenerating={isGenerating}
+              onGenerate={generateImage}
+              onImageGenerated={(imageUrl, prompt) => {
+                const imageMessage: Message = {
+                  id: Date.now().toString(),
+                  role: 'assistant',
+                  content: `![Generated Image](${imageUrl})\n\n*Generated from: "${prompt}"*`,
+                  timestamp: new Date(),
+                };
+                setMessages(prev => [...prev, imageMessage]);
+                toast({
+                  title: "Image generated!",
+                  description: "Your AI-generated image has been added to the chat."
+                });
+              }}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setLearningPrefsOpen(true)}
+              title="Learning preferences"
+            >
+              <Brain className="w-5 h-5" />
+            </Button>
             {hasMessages && (
               <Button
                 variant="ghost"

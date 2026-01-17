@@ -68,17 +68,55 @@ export function useConversations() {
     }
   }, [user]);
 
+  // Handle real-time conversation updates
+  const handleConversationChange = useCallback((payload: any) => {
+    if (payload.eventType === 'INSERT') {
+      setConversations(prev => {
+        const exists = prev.some(c => c.id === payload.new.id);
+        if (exists) return prev;
+        return [payload.new, ...prev];
+      });
+    } else if (payload.eventType === 'UPDATE') {
+      setConversations(prev => 
+        prev.map(c => c.id === payload.new.id ? payload.new : c)
+      );
+    } else if (payload.eventType === 'DELETE') {
+      setConversations(prev => 
+        prev.filter(c => c.id !== payload.old.id)
+      );
+    }
+  }, []);
+
   useEffect(() => {
     if (user) {
       setLoading(true);
       Promise.all([fetchConversations(), fetchKnowledgeSpaces()])
         .finally(() => setLoading(false));
+
+      // Set up real-time subscription
+      const channel = supabase
+        .channel(`conversations-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'conversations',
+            filter: `user_id=eq.${user.id}`
+          },
+          handleConversationChange
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     } else {
       setConversations([]);
       setKnowledgeSpaces([]);
       setLoading(false);
     }
-  }, [user, fetchConversations, fetchKnowledgeSpaces]);
+  }, [user, fetchConversations, fetchKnowledgeSpaces, handleConversationChange]);
 
   const createConversation = async (title: string = 'New Chat', preview?: string) => {
     if (!user) return { data: null, error: new Error('Not authenticated') };
