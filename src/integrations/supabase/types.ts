@@ -55,6 +55,30 @@ export type Database = {
           },
         ]
       }
+      image_generation_usage: {
+        Row: {
+          generated_at: string
+          id: string
+          image_url: string | null
+          prompt: string
+          user_id: string
+        }
+        Insert: {
+          generated_at?: string
+          id?: string
+          image_url?: string | null
+          prompt: string
+          user_id: string
+        }
+        Update: {
+          generated_at?: string
+          id?: string
+          image_url?: string | null
+          prompt?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       knowledge_spaces: {
         Row: {
           color: string
@@ -81,6 +105,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      learning_analytics: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          difficulty_level: string | null
+          engagement_score: number | null
+          id: string
+          learning_style: string | null
+          quiz_accuracy: number | null
+          response_time_ms: number | null
+          topic: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          difficulty_level?: string | null
+          engagement_score?: number | null
+          id?: string
+          learning_style?: string | null
+          quiz_accuracy?: number | null
+          response_time_ms?: number | null
+          topic?: string | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          difficulty_level?: string | null
+          engagement_score?: number | null
+          id?: string
+          learning_style?: string | null
+          quiz_accuracy?: number | null
+          response_time_ms?: number | null
+          topic?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_analytics_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       messages: {
         Row: {
@@ -147,12 +218,45 @@ export type Database = {
         }
         Relationships: []
       }
+      user_preferences: {
+        Row: {
+          created_at: string
+          difficulty_preference: string | null
+          gamification_enabled: boolean | null
+          id: string
+          preferred_examples: string | null
+          preferred_learning_style: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          difficulty_preference?: string | null
+          gamification_enabled?: boolean | null
+          id?: string
+          preferred_examples?: string | null
+          preferred_learning_style?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          difficulty_preference?: string | null
+          gamification_enabled?: boolean | null
+          id?: string
+          preferred_examples?: string | null
+          preferred_learning_style?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_daily_image_count: { Args: { p_user_id: string }; Returns: number }
     }
     Enums: {
       [_ in never]: never
